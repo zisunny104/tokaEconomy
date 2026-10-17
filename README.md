@@ -101,6 +101,10 @@
 
 效果擇一：`free: true` 或 `discount: 1–100`。同時符合多條時取最優惠的一條；加 `stack: true` 的規則會與之疊加，總折扣最多 100%。
 
+## 側欄餘額（tokaDisplay）
+
+安裝 tokaDisplay 0.3.0 以上時，每種貨幣會在側欄註冊一個區段（owner 為 `tokaEconomy`，id 為貨幣代碼，預設 `money`、`coin`），內容為「貨幣名稱＋千分位餘額」，只讀記憶體餘額；沒有帳戶時不顯示。區段的排列在 tokaDisplay 的版面設定裡調整。tokaDisplay 是選用相依，沒裝或版本太舊會自動略過。`sidebar.show: false` 可關閉；`/economy reload` 會重新註冊（新增的貨幣也會出現）。文字在 `lang/zh-TW.yml` 的 `ui.sidebar`。
+
 ## 舊名稱帳戶（legacy）
 
 舊系統的帳戶只有名稱沒有 UUID。其他插件或搬遷程式用 `Economy.importLegacy` 匯入後，存在 `legacy` 文件集合（鍵為小寫名稱，內容：名稱、各貨幣餘額、來源、建立時間），並全部載入記憶體。
@@ -142,6 +146,7 @@ if (!r.ok()) { /* r.status() */ }
 
 ## 版本紀錄
 
+- 0.3.1：向 tokaDisplay 註冊側欄餘額區段（每種貨幣一列），新增 `sidebar.show`。
 - 0.3.0：視窗元件（Menu、ListMenu、Confirm 等）內建於 `dev.toka.economy.form`，移除 tokaForms 相依；排行榜與交易紀錄的排序／搜尋偏好各自獨立，交易紀錄「舊到新」改依時間與編號排序；新增舊名稱帳戶（`Economy.importLegacy`、登入自動取回、`/economy legacy`）。
 - 0.2.0：`/balance` 玩家視窗（錢包、轉帳、兌換、排行榜、交易紀錄），使用 tokaForms 0.1.1（0.3.0 起內建）；新增 `window-*` 設定，`/economy reload` 一併更新。
 - 0.1.0：初版。多貨幣餘額、API、轉帳手續費與規則、兌換、排行榜、交易紀錄與清理、管理與相容指令。

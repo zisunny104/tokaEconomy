@@ -7,6 +7,7 @@ import cn.nukkit.command.PluginIdentifiableCommand;
 import cn.nukkit.event.EventHandler;
 import cn.nukkit.event.Listener;
 import cn.nukkit.event.player.PlayerJoinEvent;
+import cn.nukkit.event.plugin.PluginEnableEvent;
 import cn.nukkit.plugin.PluginBase;
 import cn.nukkit.scheduler.AsyncTask;
 import cn.nukkit.utils.Config;
@@ -43,6 +44,8 @@ public final class Main extends PluginBase implements Listener {
     private CommandLogic logic;
     private EconomyWindows windows;
     private volatile WindowSettings windowSettings;
+    private Sidebar sidebar;
+    private volatile boolean sidebarShow = true;
 
     @Override
     public void onEnable() {
@@ -68,9 +71,13 @@ public final class Main extends PluginBase implements Listener {
         windowSettings = WindowSettings.parse(getConfig().getAll());
         windows = new EconomyWindows(service, logic, messages, () -> windowSettings, this::send);
         EconomyWindows.register(this);
+        sidebar = new Sidebar(() -> service, messages);
+        sidebarShow = Sidebar.show(getConfig().getAll());
         Economy.install(service, players);
         getServer().getPluginManager().registerEvents(this, this);
         registerExtraCommands(service.settings().compatCommands());
+        refreshSidebar();
+        getServer().getScheduler().scheduleDelayedTask(this, this::refreshSidebar, 40);
         getServer().getScheduler().scheduleDelayedRepeatingTask(this, this::cleanup, 20 * 30, DAY_TICKS);
         getLogger().info(messages.text("log.ready", service.currencies().size(), service.ledgerSize()));
         if (service.legacyCount() > 0) {
@@ -80,6 +87,9 @@ public final class Main extends PluginBase implements Listener {
 
     @Override
     public void onDisable() {
+        if (sidebar != null) {
+            sidebar.unregister(getServer().getPluginManager().getPlugin(Sidebar.displayName()));
+        }
         Economy.uninstall();
         if (players != null) {
             players.stop();
@@ -92,6 +102,25 @@ public final class Main extends PluginBase implements Listener {
             } catch (Exception e) {
                 getLogger().error(messages.text("log.storeFailed"), e);
             }
+        }
+    }
+
+    @EventHandler
+    public void onPluginEnable(PluginEnableEvent event) {
+        if (Sidebar.displayName().equals(event.getPlugin().getName())) {
+            refreshSidebar();
+        }
+    }
+
+    /** Registers the balance sections (or removes them when sidebar.show is false); safe to call again at any time. */
+    private void refreshSidebar() {
+        if (sidebar == null) {
+            return;
+        }
+        cn.nukkit.plugin.Plugin display = getServer().getPluginManager().getPlugin(Sidebar.displayName());
+        sidebar.unregister(display);
+        if (sidebarShow) {
+            sidebar.register(display);
         }
     }
 
@@ -271,7 +300,7 @@ public final class Main extends PluginBase implements Listener {
                 || key.equals("msg.top.empty") || key.equals("msg.ledger.empty"));
     }
 
-    private record Loaded(Settings settings, WindowSettings windows) {
+    private record Loaded(Settings settings, WindowSettings windows, boolean sidebar) {
     }
 
     private void reload(CommandSender sender) {
@@ -281,7 +310,7 @@ public final class Main extends PluginBase implements Listener {
             public void onRun() {
                 try {
                     Map<String, Object> root = new Config(file, Config.YAML).getAll();
-                    setResult(new Loaded(Settings.parse(root), WindowSettings.parse(root)));
+                    setResult(new Loaded(Settings.parse(root), WindowSettings.parse(root), Sidebar.show(root)));
                 } catch (RuntimeException e) {
                     setResult(e);
                 }
@@ -294,6 +323,8 @@ public final class Main extends PluginBase implements Listener {
                     Settings settings = loaded.settings();
                     service.settings(settings);
                     windowSettings = loaded.windows();
+                    sidebarShow = loaded.sidebar();
+                    refreshSidebar();
                     sender.sendMessage(messages.text("ui.prefix") + messages.text("msg.reload.ok"));
                     getLogger().info(messages.text("log.reloaded", settings.currencies().size()));
                 } else {

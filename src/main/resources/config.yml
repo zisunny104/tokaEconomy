@@ -28,6 +28,10 @@ window-rows-max: 500
 # 名稱已被其他插件使用時會略過並寫入 log。修改後需重新啟動伺服器。
 compat-commands: true
 
+# 側欄餘額（需安裝 tokaDisplay 0.3.0 以上，沒有就自動略過）。show 為 true 時每種貨幣在側欄各有一列，區段名稱就是貨幣代碼，排列在 tokaDisplay 的版面設定調整；修改後 /economy reload 即可生效。
+sidebar:
+  show: true
+
 # 貨幣清單。區塊名稱是貨幣代碼，只能用小寫英數字，長度 2 到 16，建立後不可更改（資料庫只存代碼）。
 # 不在清單內的代碼一律視為無效；從清單移除貨幣不會刪除餘額，重新加回即可恢復。
 #   primary  是否為主要貨幣，必須恰好一種為 true

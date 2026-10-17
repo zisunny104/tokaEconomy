@@ -59,6 +59,9 @@ public class LangFileTest {
         for (String reason : Reasons.ALL) {
             assertTrue("status.reason." + reason, keys.contains("status.reason." + reason));
         }
+        for (String key : List.of("money", "coin", "other")) {
+            assertTrue("ui.sidebar." + key, keys.contains("ui.sidebar." + key));
+        }
         for (String kind : List.of("give", "take", "set")) {
             assertTrue(keys.contains("cmd.economy." + kind + ".usage"));
         }
