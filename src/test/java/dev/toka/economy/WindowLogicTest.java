@@ -128,20 +128,23 @@ public class WindowLogicTest {
         service.deposit(alice, "money", 1000, Cause.of("give", "admin"));
         clock.millis += 60_000;
         service.transfer(alice, bob, "money", 100, Cause.of("pay", "test"));
-        List<Line> rows = logic.ledgerRows(alice, 500);
+        List<CommandLogic.Row> rows = logic.ledgerRows(alice, 500);
         // the deposit, then the transfer and its fee (the account got a starting row only when initial > 0)
         assertTrue(rows.size() >= 3);
-        assertEquals("ui.ledger.out", rows.get(0).key());
-        String newest = String.valueOf(rows.get(0).args()[0]);
-        String oldest = String.valueOf(rows.get(rows.size() - 1).args()[0]);
+        assertEquals("ui.ledger.out", rows.get(0).line().key());
+        String newest = String.valueOf(rows.get(0).line().args()[0]);
+        String oldest = String.valueOf(rows.get(rows.size() - 1).line().args()[0]);
         assertTrue(newest.compareTo(oldest) > 0);
         assertTrue(newest.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}"));
-        assertEquals("ui.ledger.in", rows.get(rows.size() - 1).key());
+        assertEquals("ui.ledger.in", rows.get(rows.size() - 1).line().key());
+        // the rows carry the time and id the window sorts by
+        assertTrue(rows.get(0).time() > rows.get(rows.size() - 1).time());
+        assertTrue(rows.get(0).id() > rows.get(rows.size() - 1).id());
         assertEquals(2, logic.ledgerRows(alice, 2).size());
         assertEquals(1, logic.ledgerRows(bob, 500).size());
         // every row has a text in the language file
-        for (Line row : rows) {
-            assertTrue(messages.text(row.key(), row.args()).contains("$"));
+        for (CommandLogic.Row row : rows) {
+            assertTrue(messages.text(row.line().key(), row.line().args()).contains("$"));
         }
     }
 

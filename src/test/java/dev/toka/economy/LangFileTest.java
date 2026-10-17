@@ -75,7 +75,7 @@ public class LangFileTest {
         }
         String all = String.join("\n", messages.lines("help.economy"));
         for (String command : List.of("/economy top", "/economy see", "/economy give", "/economy take", "/economy set", "/economy ledger",
-                "/economy rates", "/economy reload", "/economy vacuum", "/exchange", "/pay", "/balance", "/topmoney", "/seemoney",
+                "/economy rates", "/economy reload", "/economy vacuum", "/economy legacy list", "/economy legacy claim", "/economy legacy drop", "/exchange", "/pay", "/balance", "/topmoney", "/seemoney",
                 "/givemoney", "/takemoney", "/setmoney")) {
             assertTrue(command, all.contains(command));
         }

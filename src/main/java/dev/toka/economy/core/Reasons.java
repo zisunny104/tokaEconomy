@@ -13,9 +13,10 @@ public final class Reasons {
     public static final String TAKE = "take";
     public static final String SET = "set";
     public static final String API = "api";
+    public static final String LEGACY_CLAIM = "legacy-claim";
 
     /** Every code above; the language file has status.reason.&lt;code&gt; for each. */
-    public static final List<String> ALL = List.of(TRANSFER, FEE, EXCHANGE_OUT, EXCHANGE_IN, INITIAL, GIVE, TAKE, SET, API);
+    public static final List<String> ALL = List.of(TRANSFER, FEE, EXCHANGE_OUT, EXCHANGE_IN, INITIAL, GIVE, TAKE, SET, API, LEGACY_CLAIM);
 
     private Reasons() {
     }

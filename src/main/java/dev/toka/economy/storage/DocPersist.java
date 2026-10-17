@@ -37,9 +37,15 @@ public final class DocPersist implements Persist, AutoCloseable {
     }
 
     @Override
-    public void save(Map<String, JsonObject> documents) {
+    public void save(Map<String, JsonObject> documents, List<String> deletes) {
         Map<String, JsonObject> copy = Map.copyOf(documents);
-        writer.submit("log.writeFailed", () -> store.saveAll(copy));
+        List<String> gone = List.copyOf(deletes);
+        writer.submit("log.writeFailed", () -> {
+            store.saveAll(copy);
+            for (String key : gone) {
+                store.delete(key);
+            }
+        });
     }
 
     /** Deletes old ledger rows in small steps, each a separate write so that saves are not held up. */

@@ -73,6 +73,9 @@ public final class Main extends PluginBase implements Listener {
         registerExtraCommands(service.settings().compatCommands());
         getServer().getScheduler().scheduleDelayedRepeatingTask(this, this::cleanup, 20 * 30, DAY_TICKS);
         getLogger().info(messages.text("log.ready", service.currencies().size(), service.ledgerSize()));
+        if (service.legacyCount() > 0) {
+            getLogger().info(messages.text("log.legacyPending", service.legacyCount()));
+        }
     }
 
     @Override
@@ -94,7 +97,19 @@ public final class Main extends PluginBase implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        service.createAccount(event.getPlayer().getUniqueId(), event.getPlayer().getName());
+        Player player = event.getPlayer();
+        EconomyService.Join join = service.join(player.getUniqueId(), player.getName());
+        switch (join.outcome()) {
+            case CLAIMED -> {
+                String summary = logic.legacySummary(join.legacy());
+                getLogger().info(messages.text("log.legacyClaimed", join.legacy().name(), player.getName(), summary));
+                send(player, List.of(Line.of("msg.legacy.joined", summary)));
+            }
+            case HELD_BALANCE -> getLogger().info(messages.text("log.legacyHeldBalance", join.legacy().name(), player.getName()));
+            case HELD_CONFLICT -> getLogger().info(messages.text("log.legacyHeldConflict", join.legacy().name(), player.getName()));
+            default -> {
+            }
+        }
     }
 
     // ---- ledger clean-up ------------------------------------------------------------------------------------------
@@ -173,7 +188,7 @@ public final class Main extends PluginBase implements Listener {
         String sub = args[0].toLowerCase(java.util.Locale.ROOT);
         String[] rest = Arrays.copyOfRange(args, 1, args.length);
         switch (sub) {
-            case "top", "see", "give", "take", "set", "reload", "vacuum", "ledger", "rates" -> run(sender, sub, rest);
+            case "top", "see", "give", "take", "set", "reload", "vacuum", "ledger", "rates", "legacy" -> run(sender, sub, rest);
             default -> send(sender, List.of(Line.of("err.usage", messages.text("cmd.economy.usage"))));
         }
     }
@@ -186,7 +201,7 @@ public final class Main extends PluginBase implements Listener {
         }
         boolean admin = sender.hasPermission(PERM_ADMIN);
         boolean adminOnly = switch (action) {
-            case "give", "take", "set", "reload", "vacuum", "ledger", "rates" -> true;
+            case "give", "take", "set", "reload", "vacuum", "ledger", "rates", "legacy" -> true;
             default -> false;
         };
         if (adminOnly && !admin) {
@@ -210,6 +225,7 @@ public final class Main extends PluginBase implements Listener {
             case "give", "take", "set" -> logic.adjust(action, caller, args, out);
             case "ledger" -> logic.ledger(args, out);
             case "rates" -> out.accept(logic.rates());
+            case "legacy" -> logic.legacy(caller, args, out);
             case "top" -> out.accept(logic.top(args));
             case "reload" -> reload(sender);
             case "vacuum" -> vacuum(sender);

@@ -1,6 +1,6 @@
 # tokaEconomy
 
-**tokaEconomy 0.2.0**：多貨幣經濟服務。玩家有各貨幣的餘額，可轉帳（依規則收手續費）、兌換貨幣、看排行榜，並有 `/balance` 玩家視窗；管理員可給予、扣除、設定餘額並查交易紀錄；其他插件可直接呼叫 API。需要 Java 21。tokaProfiles 為選用（有裝才用於名稱對應）。
+**tokaEconomy 0.3.0**：多貨幣經濟服務。玩家有各貨幣的餘額，可轉帳（依規則收手續費）、兌換貨幣、看排行榜，並有 `/balance` 玩家視窗；管理員可給予、扣除、設定餘額並查交易紀錄；其他插件可直接呼叫 API；舊的名稱帳戶可匯入，同名玩家登入時自動取回。需要 Java 21。tokaProfiles 為選用（有裝才用於名稱對應）。
 
 - 帳戶以 UUID 為準，金額一律是整數（`long`），資料存在 `storage/sqlite`。
 - 餘額先在記憶體更新，由單一背景執行緒存檔；關閉伺服器時最多等 10 秒寫完。
@@ -37,11 +37,11 @@
 | 轉帳確認 | 對象、金額、手續費、實付合計、轉後餘額；按取消或關閉視窗即取消 |
 | 兌換 | 只列有匯率的組合，表單顯示匯率與持有量，確認視窗顯示可得數量 |
 | 排行榜 | 只有一種貨幣時略過選貨幣；自己的列加「（你）」，上方顯示名次 |
-| 交易紀錄 | 排序可選新到舊（預設）或舊到新；沒有紀錄時說明 |
+| 交易紀錄 | 排序可選新到舊（預設）或舊到新（依紀錄時間與編號，同秒順序正確）；沒有紀錄時說明 |
 
 （圖：轉帳表單與確認視窗）（圖：排行榜）（圖：交易紀錄）
 
-每個清單第一顆按鈕固定是「返回」，項目多時有「搜尋／排序／每頁數量」，玩家的選擇保留到離開伺服器。視窗只讀記憶體，不做磁碟存取；結果訊息與指令相同。
+每個清單第一顆按鈕固定是「返回」，項目多時有「搜尋／排序／每頁數量」，玩家的選擇保留到離開伺服器，每個清單（選玩家、兌換組合、排行榜、交易紀錄）各自記住。視窗元件已內建於本插件，不再需要 tokaForms。視窗只讀記憶體，不做磁碟存取；結果訊息與指令相同。
 
 各指令加 `help` 可看說明，例如 `/pay help`。後台（console）可用 `/balance <玩家>`、`/economy` 的管理子指令。
 
@@ -59,6 +59,9 @@
 | `/economy rates` | 列出匯率 | `tokaEconomy.admin` |
 | `/economy reload` | 重新讀取 `config.yml`（貨幣、手續費、匯率、清理設定），不需重啟 | `tokaEconomy.admin` |
 | `/economy vacuum` | 立即在背景清理過期的交易紀錄 | `tokaEconomy.admin` |
+| `/economy legacy list [頁]` | 列出尚未取回的舊名稱帳戶（名稱、餘額、來源） | `tokaEconomy.admin` |
+| `/economy legacy claim <名稱> <玩家>` | 強制把舊帳戶餘額併入該玩家（不論有無餘額），寫交易紀錄 | `tokaEconomy.admin` |
+| `/economy legacy drop <名稱>` | 刪除一筆舊帳戶，不給任何人 | `tokaEconomy.admin` |
 
 `/bal`、`/money`、`/topmoney`、`/seemoney`、`/givemoney`、`/takemoney`、`/setmoney` 是啟動時另外註冊的名稱；已被其他插件使用的名稱會略過並寫入 log。`/seemoney`、`/givemoney`、`/takemoney`、`/setmoney` 受設定 `compat-commands` 控制。`tokaEconomy.fee.free` 讓擁有者轉帳不收手續費。
 
@@ -98,6 +101,14 @@
 
 效果擇一：`free: true` 或 `discount: 1–100`。同時符合多條時取最優惠的一條；加 `stack: true` 的規則會與之疊加，總折扣最多 100%。
 
+## 舊名稱帳戶（legacy）
+
+舊系統的帳戶只有名稱沒有 UUID。其他插件或搬遷程式用 `Economy.importLegacy` 匯入後，存在 `legacy` 文件集合（鍵為小寫名稱，內容：名稱、各貨幣餘額、來源、建立時間），並全部載入記憶體。
+
+- **自動取回**：玩家登入時，若有同名（不分大小寫）的舊帳戶，且該 UUID 帳戶不存在或各貨幣餘額皆為 0，餘額併入該帳戶、刪除舊帳戶，並寫交易紀錄（原因 `legacy-claim`）。取回時不再給新帳戶的起始餘額。
+- **有爭議就不動**：該帳戶已有餘額，或另一個 UUID 帳戶使用同樣的名稱時，保留舊帳戶並在後台 log 記一筆；管理員用 `/economy legacy claim` 決定。
+- 同名再次匯入會覆蓋；全部取回或刪除後不會再有新資料。登入時只查記憶體，不做磁碟存取。
+
 ## API
 
 靜態入口 `dev.toka.economy.Economy`，在主執行緒呼叫，不做磁碟存取。每個玩家參數都有 `Player` 與 `UUID` 兩種版本（`resolve` 除外）。
@@ -116,11 +127,13 @@
 | `transfer(from, to, 貨幣, 金額, Cause)` | 玩家對玩家轉帳，含手續費（`Result.fee()`） |
 | `previewTransfer(from, to, 貨幣, 金額)` | 只算結果與手續費，不變更 |
 | `exchange(id, 來源, 目標, 金額, Cause)`、`previewExchange(...)` | 兌換與預覽，所得在 `Result.received()` |
+| `importLegacy(String name, Map<String,Long> balances, Cause)` | 匯入舊名稱帳戶（同名覆蓋，可重複執行；0 的金額略過）；失敗為 `INVALID_NAME`、`UNKNOWN_CURRENCY`、`INVALID_AMOUNT`、`OVERFLOW` |
+| `legacyCount()` | 還沒被取回的舊帳戶數 |
 | `currencies()`、`primary()` | 貨幣代碼清單（依設定順序）、主要貨幣 |
 | `format(金額, 貨幣, 含符號)` | 千分位格式，如 `$12,345` |
 | `currencyName(貨幣, 語言)` | 貨幣名稱 |
 
-`Result(status, amount, fee, balance, received)` 的 `status` 為 `Status`：`OK`、`INVALID_AMOUNT`、`UNKNOWN_CURRENCY`、`NO_ACCOUNT`、`INSUFFICIENT_FUNDS`、`OVERFLOW`、`SAME_ACCOUNT`、`NO_RATE`、`UNAVAILABLE`。`Cause.of("原因代碼", "插件名")` 會寫進交易紀錄。轉帳由轉出方付「金額 + 手續費」，對方收到完整金額。
+`Result(status, amount, fee, balance, received)` 的 `status` 為 `Status`：`OK`、`INVALID_AMOUNT`、`UNKNOWN_CURRENCY`、`NO_ACCOUNT`、`INSUFFICIENT_FUNDS`、`OVERFLOW`、`SAME_ACCOUNT`、`NO_RATE`、`INVALID_NAME`、`NO_LEGACY`、`UNAVAILABLE`。`Cause.of("原因代碼", "插件名")` 會寫進交易紀錄。轉帳由轉出方付「金額 + 手續費」，對方收到完整金額。
 
 ```java
 Result r = Economy.transfer(from, to, "money", 500, Cause.of("shop-buy", "myPlugin"));
@@ -129,7 +142,8 @@ if (!r.ok()) { /* r.status() */ }
 
 ## 版本紀錄
 
-- 0.2.0：`/balance` 玩家視窗（錢包、轉帳、兌換、排行榜、交易紀錄），使用 tokaForms 0.1.1；新增 `window-*` 設定，`/economy reload` 一併更新。
+- 0.3.0：視窗元件（Menu、ListMenu、Confirm 等）內建於 `dev.toka.economy.form`，移除 tokaForms 相依；排行榜與交易紀錄的排序／搜尋偏好各自獨立，交易紀錄「舊到新」改依時間與編號排序；新增舊名稱帳戶（`Economy.importLegacy`、登入自動取回、`/economy legacy`）。
+- 0.2.0：`/balance` 玩家視窗（錢包、轉帳、兌換、排行榜、交易紀錄），使用 tokaForms 0.1.1（0.3.0 起內建）；新增 `window-*` 設定，`/economy reload` 一併更新。
 - 0.1.0：初版。多貨幣餘額、API、轉帳手續費與規則、兌換、排行榜、交易紀錄與清理、管理與相容指令。
 
 授權：MIT。

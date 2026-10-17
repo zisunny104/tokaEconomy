@@ -50,9 +50,10 @@ final class TestSupport {
         int batches;
 
         @Override
-        public void save(Map<String, JsonObject> batch) {
+        public void save(Map<String, JsonObject> batch, List<String> deletes) {
             batches++;
             documents.putAll(batch);
+            deletes.forEach(documents::remove);
         }
     }
 

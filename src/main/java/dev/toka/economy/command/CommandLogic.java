@@ -3,7 +3,9 @@ package dev.toka.economy.command;
 import dev.toka.economy.Cause;
 import dev.toka.economy.Result;
 import dev.toka.economy.Status;
+import dev.toka.economy.core.Codec;
 import dev.toka.economy.core.Codec.LedgerEntry;
+import dev.toka.economy.core.Reasons;
 import dev.toka.economy.core.EconomyService;
 import dev.toka.economy.core.Settings;
 import dev.toka.i18n.Messages;
@@ -23,7 +25,6 @@ import java.util.regex.Pattern;
 public final class CommandLogic {
     private static final Pattern DIGITS = Pattern.compile("[0-9]{1,18}");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("MM-dd HH:mm");
-    /** Starts with the year and ends with the seconds, so the texts of a window sort in time order. */
     private static final DateTimeFormatter TIME_FULL = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final EconomyService service;
@@ -358,15 +359,80 @@ public final class CommandLogic {
      * The ledger of one player for a window, newest first, at most {@code limit} rows. ui.ledger.out when the player paid,
      * ui.ledger.in when the player received; arguments: time, reason, amount, the other side.
      */
-    public List<Line> ledgerRows(UUID who, int limit) {
-        List<Line> rows = new ArrayList<>();
+    public List<Row> ledgerRows(UUID who, int limit) {
+        List<Row> rows = new ArrayList<>();
         for (LedgerEntry e : service.ledger(who, 1, Math.max(1, limit)).entries()) {
             boolean out = who.equals(e.from());
-            rows.add(Line.of(out ? "ui.ledger.out" : "ui.ledger.in",
+            rows.add(new Row(Line.of(out ? "ui.ledger.out" : "ui.ledger.in",
                     LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(e.time()), service.zone()).format(TIME_FULL),
-                    reason(e.reason()), service.format(e.amount(), e.currency(), true), party(out ? e.to() : e.from())));
+                    reason(e.reason()), service.format(e.amount(), e.currency(), true), party(out ? e.to() : e.from())), e.time(), e.id()));
         }
         return rows;
+    }
+
+    /** A ledger line of a window with the time and id of the row, which the window sorts by. */
+    public record Row(Line line, long time, long id) {
+    }
+
+    // ---- /economy legacy list [page] | claim <name> <player> | drop <name> -----------------------------------------------
+
+    public void legacy(Caller caller, String[] args, Consumer<List<Line>> done) {
+        String sub = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
+        switch (sub) {
+            case "list" -> done.accept(legacyList(Pager.parse(args.length > 1 ? args[1] : null, 1)));
+            case "drop" -> {
+                if (args.length != 2) {
+                    done.accept(usage("cmd.economy.legacy.usage"));
+                } else {
+                    done.accept(List.of(service.dropLegacy(args[1]) ? Line.of("msg.legacy.dropped", args[1]) : Line.of("err.legacy.notFound", args[1])));
+                }
+            }
+            case "claim" -> {
+                if (args.length != 3) {
+                    done.accept(usage("cmd.economy.legacy.usage"));
+                    return;
+                }
+                names.resolve(args[2], found -> {
+                    if (found.isEmpty()) {
+                        done.accept(List.of(Line.of("err.player.notFound", args[2])));
+                        return;
+                    }
+                    UUID id = found.get();
+                    String shown = service.hasAccount(id) ? names.display(id) : args[2];
+                    EconomyService.Claim claim = service.claimLegacy(args[1], id, service.hasAccount(id) ? null : args[2],
+                            Cause.of(Reasons.LEGACY_CLAIM, "admin:" + caller.name()));
+                    done.accept(List.of(switch (claim.status()) {
+                        case OK -> Line.of("msg.legacy.claimed", claim.legacy().name(), shown, legacySummary(claim.legacy()));
+                        case NO_LEGACY -> Line.of("err.legacy.notFound", args[1]);
+                        default -> error(Result.fail(claim.status()), service.primary(), shown);
+                    }));
+                });
+            }
+            default -> done.accept(usage("cmd.economy.legacy.usage"));
+        }
+    }
+
+    private List<Line> legacyList(int page) {
+        EconomyService.LegacyPage p = service.legacies(page, 10);
+        if (p.total() == 0) {
+            return List.of(Line.of("msg.legacy.empty"));
+        }
+        List<Line> lines = new ArrayList<>();
+        lines.add(Line.of("msg.legacy.header", p.total()));
+        for (Codec.Legacy entry : p.entries()) {
+            lines.add(Line.of("msg.legacy.line", entry.name(), legacySummary(entry), entry.source()));
+        }
+        if (p.pages() > 1) {
+            lines.add(Line.of("ui.page.footer", p.page(), p.pages(), "/economy legacy list"));
+        }
+        return lines;
+    }
+
+    /** The balances of a legacy account as text: the currency names and amounts, in currency order. */
+    public String legacySummary(Codec.Legacy entry) {
+        List<String> parts = new ArrayList<>();
+        entry.balances().forEach((code, amount) -> parts.add(service.currencyName(code, language()) + " " + service.format(amount, code, true)));
+        return String.join("、", parts);
     }
 
     // ---- shared ----------------------------------------------------------------------------------------------------
@@ -401,6 +467,8 @@ public final class CommandLogic {
             case OVERFLOW -> Line.of("err.overflow");
             case SAME_ACCOUNT -> Line.of("err.self");
             case NO_RATE -> Line.of("err.noRate", who);
+            case INVALID_NAME -> Line.of("err.legacy.name");
+            case NO_LEGACY -> Line.of("err.legacy.notFound", who);
             case UNAVAILABLE, OK -> Line.of("err.unavailable");
         };
     }

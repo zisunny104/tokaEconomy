@@ -6,7 +6,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** Documents of the store. Accounts are "a&lt;uuid&gt;": uuid, name, balances (code to amount). Ledger rows are "l&lt;12 digit id&gt;". */
+/**
+ * Documents of the store. Accounts are "a&lt;uuid&gt;": uuid, name, balances (code to amount). Ledger rows are "l&lt;12 digit id&gt;".
+ * The legacy collection is the keys "legacy.n.&lt;lowercase name&gt;" (letters, digits, dot, dash, underscore) or
+ * "legacy.h.&lt;hex of the lowercase name&gt;" (any other name): name, balances, source, time.
+ */
 public final class Codec {
     private Codec() {
     }
@@ -44,7 +48,46 @@ public final class Codec {
     }
 
     public static boolean isLedgerKey(String key) {
-        return key.startsWith("l");
+        return key.startsWith("l") && !isLegacyKey(key);
+    }
+
+    /** A name waiting to be claimed (an account of the old system, which had names and no UUIDs). */
+    public record Legacy(String name, Map<String, Long> balances, String source, long time) {
+        public Legacy {
+            balances = Map.copyOf(balances);
+        }
+    }
+
+    public static final String LEGACY_PREFIX = "legacy.";
+    private static final java.util.regex.Pattern PLAIN_NAME = java.util.regex.Pattern.compile("[a-z0-9._-]{1,100}");
+
+    public static boolean isLegacyKey(String key) {
+        return key.startsWith(LEGACY_PREFIX);
+    }
+
+    /** @param lowerName the name in lowercase */
+    public static String legacyKey(String lowerName) {
+        if (PLAIN_NAME.matcher(lowerName).matches()) {
+            return LEGACY_PREFIX + "n." + lowerName;
+        }
+        return LEGACY_PREFIX + "h." + java.util.HexFormat.of().formatHex(lowerName.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    public static JsonObject encode(Legacy legacy) {
+        JsonObject doc = new JsonObject();
+        doc.addProperty("name", legacy.name());
+        JsonObject balances = new JsonObject();
+        legacy.balances().forEach(balances::addProperty);
+        doc.add("balances", balances);
+        doc.addProperty("source", legacy.source());
+        doc.addProperty("time", legacy.time());
+        return doc;
+    }
+
+    public static Legacy decodeLegacy(JsonObject doc) {
+        Map<String, Long> balances = new java.util.TreeMap<>();
+        doc.getAsJsonObject("balances").entrySet().forEach(e -> balances.put(e.getKey(), e.getValue().getAsLong()));
+        return new Legacy(doc.get("name").getAsString(), balances, doc.get("source").getAsString(), doc.get("time").getAsLong());
     }
 
     public static JsonObject encode(Account account) {

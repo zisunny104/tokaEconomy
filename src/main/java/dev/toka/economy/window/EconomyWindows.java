@@ -10,10 +10,12 @@ import dev.toka.economy.command.Caller;
 import dev.toka.economy.command.CommandLogic;
 import dev.toka.economy.command.Line;
 import dev.toka.economy.core.EconomyService;
-import dev.toka.forms.Confirm;
-import dev.toka.forms.FormTexts;
-import dev.toka.forms.ListMenu;
-import dev.toka.forms.Menu;
+import dev.toka.economy.form.Confirm;
+import dev.toka.economy.form.Custom;
+import dev.toka.economy.form.FormListener;
+import dev.toka.economy.form.FormTexts;
+import dev.toka.economy.form.ListMenu;
+import dev.toka.economy.form.Menu;
 import dev.toka.i18n.Messages;
 
 import java.util.ArrayList;
@@ -57,8 +59,7 @@ public final class EconomyWindows {
 
     /** Register once in onEnable: the answers of the windows. */
     public static void register(cn.nukkit.plugin.Plugin plugin) {
-        dev.toka.forms.FormListener.register(plugin);
-        CustomForms.register(plugin);
+        FormListener.register(plugin);
     }
 
     // ---- shared ---------------------------------------------------------------------------------------------------
@@ -87,20 +88,21 @@ public final class EconomyWindows {
         return new Caller(player.getUniqueId(), player.getName());
     }
 
-    private FormTexts texts(String sortDefault, String sortName) {
+    private FormTexts texts(String sortDefault, String sortTime) {
         return new FormTexts(t("ui.button.back"), t("ui.button.prevPage"), t("ui.button.nextPage"), t("ui.button.options"),
                 t("ui.options.title"), t("ui.options.hint", "${0}"), t("ui.options.query"), t("ui.options.queryHint"),
-                t("ui.options.sort"), sortDefault, sortName, t("ui.options.perPage"), t("ui.search.none", "${0}"),
-                t("ui.page.title", "${0}", "${1}", "${2}"));
+                t("ui.options.sort"), sortDefault, t("ui.options.sortName"), sortTime, t("ui.options.perPage"),
+                t("ui.search.none", "${0}"), t("ui.page.title", "${0}", "${1}", "${2}"));
     }
 
     private FormTexts texts() {
-        return texts(t("ui.options.sortDefault"), t("ui.options.sortName"));
+        return texts(t("ui.options.sortDefault"), null);
     }
 
-    private ListMenu list(FormTexts texts, String title, String hint, String empty, List<ListMenu.Item> items, Consumer<Player> back) {
+    /** @param name the list, which keeps its own order, search and page size for the player */
+    private ListMenu list(String name, FormTexts texts, String title, String hint, String empty, List<ListMenu.Item> items, Consumer<Player> back) {
         WindowSettings s = settings.get();
-        return new ListMenu(texts, new ListMenu.Settings(s.perPage(), s.min(), s.max(), s.threshold()))
+        return new ListMenu(name, texts, new ListMenu.Settings(s.perPage(), s.min(), s.max(), s.threshold()))
                 .title(title).hint(hint).emptyText(empty).back(back).items(items);
     }
 
@@ -148,7 +150,7 @@ public final class EconomyWindows {
                 items.add(new ListMenu.Item(name, icon(ICON_PLAYER), p -> transferForm(p, id, name, null, "", 0)));
             }
         }
-        list(texts(), t("ui.transfer.players.title"), t("ui.transfer.players.hint"), t("ui.transfer.players.empty"), items, this::open).show(player);
+        list("players", texts(), t("ui.transfer.players.title"), t("ui.transfer.players.hint"), t("ui.transfer.players.empty"), items, this::open).show(player);
     }
 
     /** The amount (and currency) form; {@code error} explains why the last try came back. Closing it cancels. */
@@ -160,7 +162,7 @@ public final class EconomyWindows {
         if (codes.size() > 1) {
             form.addElement(new ElementDropdown(t("ui.transfer.form.currency"), currencyNames(codes), Math.max(0, Math.min(currency, codes.size() - 1))));
         }
-        CustomForms.show(player, form, response -> {
+        Custom.show(player, form, response -> {
             String typed = response.getInputResponse(1) == null ? "" : response.getInputResponse(1);
             int index = chosen(response, 2, codes.size());
             String code = codes.get(index);
@@ -187,7 +189,7 @@ public final class EconomyWindows {
             items.add(new ListMenu.Item(t("ui.exchange.pair", name(pair.from()), name(pair.to()), pair.rate().stripTrailingZeros().toPlainString()),
                     icon(ICON_EXCHANGE), p -> exchangeForm(p, pair, null, "")));
         }
-        list(texts(), t("ui.exchange.pairs.title"), t("ui.exchange.pairs.hint"), t("ui.exchange.pairs.empty"), items, this::open).show(player);
+        list("pairs", texts(), t("ui.exchange.pairs.title"), t("ui.exchange.pairs.hint"), t("ui.exchange.pairs.empty"), items, this::open).show(player);
     }
 
     private void exchangeForm(Player player, WindowLogic.Pair pair, Line error, String amount) {
@@ -196,7 +198,7 @@ public final class EconomyWindows {
         form.addElement(new ElementLabel(label(error, t("ui.exchange.form.label", name(pair.from()), name(pair.to()),
                 pair.rate().stripTrailingZeros().toPlainString(), money(have, pair.from())), null)));
         form.addElement(new ElementInput(t("ui.exchange.form.amount", name(pair.from())), t("ui.exchange.form.amountHint"), amount));
-        CustomForms.show(player, form, response -> {
+        Custom.show(player, form, response -> {
             String typed = response.getInputResponse(1) == null ? "" : response.getInputResponse(1);
             WindowLogic.Review review = windows.exchange(player.getUniqueId(), pair, typed);
             if (!review.ok()) {
@@ -236,20 +238,19 @@ public final class EconomyWindows {
             items.add(ListMenu.Item.of(text(row), p -> board(p, code, back)));
         }
         String rank = board.selfRank() > 0 ? t("ui.top.rank", board.selfRank()) : t("ui.top.unranked");
-        list(texts(), t("ui.top.list.title", name(code)), t("ui.top.list.hint", rank), t("ui.top.list.empty"), items, back).show(player);
+        list("top", texts(), t("ui.top.list.title", name(code)), t("ui.top.list.hint", rank), t("ui.top.list.empty"), items, back).show(player);
     }
 
     // ---- ledger ---------------------------------------------------------------------------------------------------
 
     private void ledger(Player player) {
-        List<Line> rows = logic.ledgerRows(player.getUniqueId(), settings.get().rowsMax());
+        List<CommandLogic.Row> rows = logic.ledgerRows(player.getUniqueId(), settings.get().rowsMax());
         List<ListMenu.Item> items = new ArrayList<>();
-        for (Line row : rows) {
-            items.add(ListMenu.Item.of(text(row), this::ledger));
+        for (CommandLogic.Row row : rows) {
+            items.add(new ListMenu.Item(text(row.line()), null, this::ledger, row.time(), row.id()));
         }
-        // the texts begin with the time, so the list's "by name" order is the oldest first
-        list(texts(t("ui.ledger.sortNew"), t("ui.ledger.sortOld")), t("ui.ledger.title"), t("ui.ledger.hint", rows.size()),
-                t("ui.ledger.empty"), items, this::open).show(player);
+        list("ledger", texts(t("ui.ledger.sortNew"), t("ui.ledger.sortOld")), t("ui.ledger.title"), t("ui.ledger.hint", rows.size()),
+                t("ui.ledger.empty"), items, this::open).sortByTime().show(player);
     }
 
     // ---- helpers of the forms -------------------------------------------------------------------------------------

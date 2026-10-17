@@ -17,6 +17,10 @@ public enum Status {
     SAME_ACCOUNT,
     /** No exchange rate between the two currencies. */
     NO_RATE,
+    /** The legacy name is empty, too long or has control characters. */
+    INVALID_NAME,
+    /** There is no legacy account with that name. */
+    NO_LEGACY,
     /** The economy is not running (disabled, failed to start or stopped). */
     UNAVAILABLE
 }

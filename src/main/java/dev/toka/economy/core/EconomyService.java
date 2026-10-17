@@ -6,6 +6,7 @@ import dev.toka.economy.Result;
 import dev.toka.economy.Status;
 import dev.toka.economy.core.Codec.Account;
 import dev.toka.economy.core.Codec.LedgerEntry;
+import dev.toka.economy.core.Codec.Legacy;
 import dev.toka.i18n.NumberText;
 import dev.toka.i18n.Pager;
 
@@ -37,6 +38,7 @@ public final class EconomyService {
     private final Map<UUID, Account> accounts = new HashMap<>();
     private final Map<String, UUID> names = new HashMap<>();
     private final ArrayDeque<LedgerEntry> ledger = new ArrayDeque<>();
+    private final Map<String, Legacy> legacy = new TreeMap<>();
     private long nextId = 1;
 
     /** @param snapshot every document of the store (empty for a new one) */
@@ -53,6 +55,9 @@ public final class EconomyService {
                 indexName(account);
             } else if (Codec.isLedgerKey(doc.getKey())) {
                 rows.add(Codec.decodeLedger(doc.getValue()));
+            } else if (Codec.isLegacyKey(doc.getKey())) {
+                Legacy entry = Codec.decodeLegacy(doc.getValue());
+                legacy.put(entry.name().toLowerCase(Locale.ROOT), entry);
             }
         }
         rows.sort(Comparator.comparingLong(LedgerEntry::id));
@@ -500,6 +505,171 @@ public final class EconomyService {
             }
         }
         return keys;
+    }
+
+    // ---- legacy accounts ------------------------------------------------------------------------------------------
+
+    /** What {@link #join} did with a legacy account of the player's name. */
+    public enum Outcome {
+        /** No legacy account of that name. */
+        NONE,
+        /** Its balances were added to the account and it was removed. */
+        CLAIMED,
+        /** Kept: the account already has a balance. */
+        HELD_BALANCE,
+        /** Kept: another account has the same name. */
+        HELD_CONFLICT
+    }
+
+    /** @param legacy the account that was (or would have been) claimed; null for NONE */
+    public record Join(Outcome outcome, Legacy legacy) {
+    }
+
+    /** @param legacy the account that was claimed; null when it failed */
+    public record Claim(Status status, Legacy legacy) {
+    }
+
+    /** A page of legacy accounts, ordered by name. */
+    public record LegacyPage(List<Legacy> entries, int page, int pages, int total) {
+    }
+
+    /**
+     * Stores the balances of a name of the old system, replacing one of the same name (case does not matter). Amounts of 0 are
+     * left out; negative ones, unknown currencies and a name that is empty, too long or has control characters fail.
+     */
+    public Result importLegacy(String name, Map<String, Long> balances, Cause cause) {
+        String clean = name == null ? "" : name.strip();
+        String lower = clean.toLowerCase(Locale.ROOT);
+        if (clean.isEmpty() || clean.length() > 100 || clean.chars().anyMatch(Character::isISOControl) || Codec.legacyKey(lower).length() > 128) {
+            return Result.fail(Status.INVALID_NAME);
+        }
+        Map<String, Long> kept = new TreeMap<>();
+        for (Map.Entry<String, Long> e : balances.entrySet()) {
+            Currency c = currency(e.getKey());
+            if (c == null) {
+                return Result.fail(Status.UNKNOWN_CURRENCY);
+            }
+            if (e.getValue() == null || e.getValue() < 0) {
+                return Result.fail(Status.INVALID_AMOUNT);
+            }
+            if (e.getValue() > 0) {
+                try {
+                    kept.merge(c.code(), e.getValue(), Math::addExact);
+                } catch (ArithmeticException ex) {
+                    return Result.fail(Status.OVERFLOW);
+                }
+            }
+        }
+        if (kept.isEmpty()) {
+            return Result.fail(Status.INVALID_AMOUNT);
+        }
+        Legacy entry = new Legacy(clean, kept, cause.source(), clock.millis());
+        synchronized (lock) {
+            legacy.put(lower, entry);
+            persist.save(Map.of(Codec.legacyKey(lower), Codec.encode(entry)));
+        }
+        return Result.fail(Status.OK);
+    }
+
+    public int legacyCount() {
+        synchronized (lock) {
+            return legacy.size();
+        }
+    }
+
+    public LegacyPage legacies(int page, int perPage) {
+        List<Legacy> all;
+        synchronized (lock) {
+            all = new ArrayList<>(legacy.values());
+        }
+        Pager.Page<Legacy> p = Pager.of(all, perPage, page);
+        return new LegacyPage(p.lines(), p.page(), p.pages(), all.size());
+    }
+
+    /** Removes the legacy account without paying it to anyone. @return false when there is none of that name */
+    public boolean dropLegacy(String name) {
+        String lower = name == null ? "" : name.strip().toLowerCase(Locale.ROOT);
+        synchronized (lock) {
+            if (legacy.remove(lower) == null) {
+                return false;
+            }
+            persist.save(Map.of(), List.of(Codec.legacyKey(lower)));
+            return true;
+        }
+    }
+
+    /**
+     * A player joined: makes the account, and first takes over the legacy account of the same name (any case) when the player's
+     * account is new or has no balance and no other account has that name. The account then has the legacy balances instead
+     * of the starting balances. Memory only; the writes go to the background.
+     */
+    public Join join(UUID id, String name) {
+        String lower = name == null ? "" : name.strip().toLowerCase(Locale.ROOT);
+        synchronized (lock) {
+            Legacy found = legacy.get(lower);
+            if (found == null) {
+                createAccount(id, name);
+                return new Join(Outcome.NONE, null);
+            }
+            Account account = accounts.get(id);
+            if (account != null && account.balances.values().stream().anyMatch(v -> v != 0)) {
+                createAccount(id, name);
+                return new Join(Outcome.HELD_BALANCE, found);
+            }
+            for (Account other : accounts.values()) {
+                if (!other.uuid.equals(id) && other.name.equalsIgnoreCase(lower)) {
+                    createAccount(id, name);
+                    return new Join(Outcome.HELD_CONFLICT, found);
+                }
+            }
+            Status status = pay(found, lower, id, name, new Cause(Reasons.LEGACY_CLAIM, "tokaEconomy"));
+            if (status != Status.OK) {
+                createAccount(id, name);
+            }
+            return new Join(status == Status.OK ? Outcome.CLAIMED : Outcome.HELD_BALANCE, found);
+        }
+    }
+
+    /** Adds the legacy balances to the account (made without starting balances when missing), whatever it holds. */
+    public Claim claimLegacy(String name, UUID id, String playerName, Cause cause) {
+        String lower = name == null ? "" : name.strip().toLowerCase(Locale.ROOT);
+        synchronized (lock) {
+            Legacy found = legacy.get(lower);
+            if (found == null) {
+                return new Claim(Status.NO_LEGACY, null);
+            }
+            Status status = pay(found, lower, id, playerName, cause);
+            return new Claim(status, status == Status.OK ? found : null);
+        }
+    }
+
+    /** Must hold the lock. Nothing changes unless it returns OK (OVERFLOW otherwise). */
+    private Status pay(Legacy found, String lower, UUID id, String playerName, Cause cause) {
+        Account account = accounts.get(id);
+        if (account != null) {
+            for (Map.Entry<String, Long> e : found.balances().entrySet()) {
+                if (account.balance(e.getKey()) > Long.MAX_VALUE - e.getValue()) {
+                    return Status.OVERFLOW;
+                }
+            }
+        } else {
+            account = new Account(id, playerName == null ? "" : playerName);
+            accounts.put(id, account);
+        }
+        if (playerName != null && !playerName.isEmpty() && !playerName.equals(account.name)) {
+            unindexName(account);
+            account.name = playerName;
+        }
+        indexName(account);
+        Map<String, JsonObject> batch = new LinkedHashMap<>();
+        for (Map.Entry<String, Long> e : found.balances().entrySet()) {
+            account.balances.put(e.getKey(), account.balance(e.getKey()) + e.getValue());
+            log(batch, e.getKey(), null, id, e.getValue(), cause);
+        }
+        batch.put(Codec.accountKey(id), Codec.encode(account));
+        legacy.remove(lower);
+        persist.save(batch, List.of(Codec.legacyKey(lower)));
+        return Status.OK;
     }
 
     // ---- internals ------------------------------------------------------------------------------------------------

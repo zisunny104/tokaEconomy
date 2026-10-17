@@ -17,7 +17,9 @@ cmd:
   exchange:
     usage: "/exchange <來源貨幣> <目標貨幣> <金額>"
   economy:
-    usage: "/economy <top|see|give|take|set|reload|vacuum|ledger|rates|help>"
+    usage: "/economy <top|see|give|take|set|reload|vacuum|ledger|rates|legacy|help>"
+    legacy:
+      usage: "/economy legacy <list [頁]|claim <名稱> <玩家>|drop <名稱>>"
     give:
       usage: "/economy give <玩家> <金額> [貨幣]"
     take:
@@ -57,6 +59,9 @@ help:
     - "§e/economy rates §7- §b列出匯率"
     - "§e/economy reload §7- §b重新讀取 config.yml（不需重啟）"
     - "§e/economy vacuum §7- §b立即清理過期的交易紀錄"
+    - "§e/economy legacy list [頁] §7- §b列出尚未取回的舊名稱帳戶"
+    - "§e/economy legacy claim <名稱> <玩家> §7- §b強制把舊帳戶餘額併入玩家帳戶（會寫交易紀錄）"
+    - "§e/economy legacy drop <名稱> §7- §b刪除一筆舊帳戶，不給任何人"
     - "§e/economy help [頁|all] §7- §b顯示此說明，all 一次全列"
 
 # ───────────────────────── 訊息（msg） ─────────────────────────
@@ -91,6 +96,16 @@ msg:
     ok: "§a已重新載入設定"
   window:
     cancelled: "§b已取消"
+  legacy:
+    header: "§6=== §f§l舊名稱帳戶§r §6=== §7共 ${0} 筆"
+    # ${0}=名稱 ${1}=各貨幣餘額 ${2}=來源
+    line: "§a${0} §7- §b${1} §7（${2}）"
+    empty: "§b沒有尚未取回的舊名稱帳戶"
+    # ${0}=各貨幣餘額；同名玩家登入時自動併入
+    joined: "§b已併入舊帳戶餘額：§a${0}"
+    # ${0}=舊帳戶名稱 ${1}=玩家 ${2}=各貨幣餘額
+    claimed: "§b已把舊帳戶 §a${0}§b 併入 §a${1}§b：§a${2}"
+    dropped: "§b已刪除舊帳戶 §a${0}"
   vacuum:
     started: "§b開始清理交易紀錄"
     done: "§b已清理 §a${0}§b 筆交易紀錄"
@@ -113,6 +128,9 @@ err:
   unavailable: "§c經濟服務目前無法使用"
   reload: "§c設定無效，沿用原設定：${0}"
   vacuum: "§c清理失敗，詳見後台 log"
+  legacy:
+    notFound: "§c沒有名為 §a${0}§c 的舊名稱帳戶"
+    name: "§c名稱不能是空的、超過 100 字或含控制字元"
 
 # ───────────────────────── 介面（ui） ─────────────────────────
 # 玩家視窗（/balance）。標題與按鈕文字都在這裡；${n} 為程式帶入的值。
@@ -219,7 +237,7 @@ ui:
     empty: "還沒有交易紀錄"
     sortNew: "新到舊"
     sortOld: "舊到新"
-    # 清單項目：${0}=時間 ${1}=原因 ${2}=金額 ${3}=對方。文字開頭必須是時間，「舊到新」才排得對。
+    # 清單項目：${0}=時間 ${1}=原因 ${2}=金額 ${3}=對方。排序用交易紀錄的時間與編號，與文字無關。
     out: "§7${0} §b${1} §c-${2} §7→ ${3}"
     in: "§7${0} §b${1} §a+${2} §7← ${3}"
 
@@ -231,6 +249,11 @@ log:
   writeFailed: "背景寫入失敗，記憶體中的餘額已更新但尚未存檔"
   cleanupFailed: "清理交易紀錄失敗"
   cleanupDone: "已清理 ${0} 筆過期的交易紀錄"
+  legacyPending: "尚有 ${0} 筆舊名稱帳戶待同名玩家登入取回"
+  # ${0}=舊帳戶名稱 ${1}=玩家 ${2}=各貨幣餘額
+  legacyClaimed: "舊帳戶 ${0} 已併入 ${1}：${2}"
+  legacyHeldBalance: "舊帳戶 ${0} 不自動併入 ${1}：該玩家的帳戶已有餘額，可用 /economy legacy claim 處理"
+  legacyHeldConflict: "舊帳戶 ${0} 不自動併入 ${1}：另有帳戶使用同樣的名稱，可用 /economy legacy claim 處理"
   drainTimeout: "關閉時等待寫入逾時（10 秒），部分變更可能未存檔"
   reloaded: "已重新載入設定：${0} 種貨幣"
   commandSkipped: "指令 /${0} 已由 ${1} 使用，略過註冊"
@@ -249,3 +272,4 @@ status:
     take: "扣除"
     set: "設定"
     api: "其他插件"
+    legacy-claim: "舊帳戶併入"

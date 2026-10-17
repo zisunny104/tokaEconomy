@@ -4,6 +4,7 @@ import cn.nukkit.Player;
 import dev.toka.economy.core.EconomyService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -151,6 +152,25 @@ public final class Economy {
     public static Result previewExchange(UUID id, String from, String to, long amount) {
         EconomyService s = service;
         return s == null ? Result.fail(Status.UNAVAILABLE) : s.previewExchange(id, from, to, amount);
+    }
+
+    // ---- legacy names ---------------------------------------------------------------------------------------------
+
+    /**
+     * Stores the balances of a name from the old (name based) system until that player joins; the balances then move to the
+     * player's account (ledger reason {@code legacy-claim}). A name that is already stored (any case) is replaced, so an
+     * import can run again. Amounts of 0 are left out. Fails with INVALID_NAME, UNKNOWN_CURRENCY or INVALID_AMOUNT (negative,
+     * or nothing above 0). No ledger row is written until the name is claimed.
+     */
+    public static Result importLegacy(String name, Map<String, Long> balances, Cause cause) {
+        EconomyService s = service;
+        return s == null ? Result.fail(Status.UNAVAILABLE) : s.importLegacy(name, balances, cause);
+    }
+
+    /** How many legacy names still wait to be claimed (0 while the economy is not running). */
+    public static int legacyCount() {
+        EconomyService s = service;
+        return s == null ? 0 : s.legacyCount();
     }
 
     // ---- currencies -----------------------------------------------------------------------------------------------
