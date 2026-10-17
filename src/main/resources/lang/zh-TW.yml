@@ -248,20 +248,20 @@ ui:
 
 # ───────────────────────── 後台 log（log） ─────────────────────────
 log:
-  ready: "經濟服務已啟動：${0} 種貨幣，${1} 筆交易紀錄"
-  configInvalid: "config.yml 無效，插件停用：${0}"
-  storeFailed: "資料庫無法開啟或寫入"
-  writeFailed: "背景寫入失敗，記憶體中的餘額已更新但尚未存檔"
-  cleanupFailed: "清理交易紀錄失敗"
-  cleanupDone: "已清理 ${0} 筆過期的交易紀錄"
-  legacyPending: "尚有 ${0} 筆舊名稱帳戶待同名玩家登入取回"
+  ready: "§b經濟服務已啟動：§a${0} §b種貨幣，§a${1} §b筆交易紀錄"
+  configInvalid: "§cconfig.yml 無效，插件停用：${0}"
+  storeFailed: "§c資料庫無法開啟或寫入"
+  writeFailed: "§c背景寫入失敗，記憶體中的餘額已更新但尚未存檔"
+  cleanupFailed: "§e清理交易紀錄失敗"
+  cleanupDone: "§b已清理 §a${0} §b筆過期的交易紀錄"
+  legacyPending: "§b尚有 §a${0} §b筆舊名稱帳戶待同名玩家登入取回"
   # ${0}=舊帳戶名稱 ${1}=玩家 ${2}=各貨幣餘額
-  legacyClaimed: "舊帳戶 ${0} 已併入 ${1}：${2}"
-  legacyHeldBalance: "舊帳戶 ${0} 不自動併入 ${1}：該玩家的帳戶已有餘額，可用 /economy legacy claim 處理"
-  legacyHeldConflict: "舊帳戶 ${0} 不自動併入 ${1}：另有帳戶使用同樣的名稱，可用 /economy legacy claim 處理"
-  drainTimeout: "關閉時等待寫入逾時（10 秒），部分變更可能未存檔"
-  reloaded: "已重新載入設定：${0} 種貨幣"
-  commandSkipped: "指令 /${0} 已由 ${1} 使用，略過註冊"
+  legacyClaimed: "§b舊帳戶 §a${0} §b已併入 §a${1}§b：${2}"
+  legacyHeldBalance: "§e舊帳戶 ${0} 不自動併入 ${1}：該玩家的帳戶已有餘額，可用 /economy legacy claim 處理"
+  legacyHeldConflict: "§e舊帳戶 ${0} 不自動併入 ${1}：另有帳戶使用同樣的名稱，可用 /economy legacy claim 處理"
+  drainTimeout: "§e關閉時等待寫入逾時（10 秒），部分變更可能未存檔"
+  reloaded: "§b已重新載入設定：§a${0} §b種貨幣"
+  commandSkipped: "§e指令 /${0} 已由 ${1} 使用，略過註冊"
 
 # ───────────────────────── 狀態文字（status） ─────────────────────────
 # status.reason.<代碼>：交易紀錄的原因；其他插件自訂的原因代碼找不到時直接顯示代碼。

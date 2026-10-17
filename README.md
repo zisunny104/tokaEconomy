@@ -147,6 +147,7 @@ if (!r.ok()) { /* r.status() */ }
 ## 版本紀錄
 
 - 0.3.1：向 tokaDisplay 註冊側欄餘額區段（每種貨幣一列），新增 `sidebar.show`。
+- 0.3.2：後台記錄套用顏色（說明文字 §b、數字 §a、警告 §e、錯誤 §c）。
 - 0.3.0：視窗元件（Menu、ListMenu、Confirm 等）內建於 `dev.toka.economy.form`，移除 tokaForms 相依；排行榜與交易紀錄的排序／搜尋偏好各自獨立，交易紀錄「舊到新」改依時間與編號排序；新增舊名稱帳戶（`Economy.importLegacy`、登入自動取回、`/economy legacy`）。
 - 0.2.0：`/balance` 玩家視窗（錢包、轉帳、兌換、排行榜、交易紀錄），使用 tokaForms 0.1.1（0.3.0 起內建）；新增 `window-*` 設定，`/economy reload` 一併更新。
 - 0.1.0：初版。多貨幣餘額、API、轉帳手續費與規則、兌換、排行榜、交易紀錄與清理、管理與相容指令。
