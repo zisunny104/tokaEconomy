@@ -1,0 +1,51 @@
+name: tokaEconomy
+main: dev.toka.economy.Main
+version: 0.1.0
+api: ["1.0.0"]
+author: zisunny104
+load: STARTUP
+softdepend: [tokaProfiles]
+description: Nukkit 多貨幣經濟服務：餘額、轉帳手續費、貨幣兌換、排行榜與交易紀錄，並提供給其他插件呼叫的 API
+commands:
+  balance:
+    description: 查看自己的餘額；管理員可查看其他玩家（別名 bal、money）
+    usage: "/balance [玩家] [貨幣]（/balance help 查看說明）"
+    permission: tokaEconomy.balance
+  pay:
+    description: 轉帳給其他玩家，依規則收取手續費
+    usage: "/pay <玩家> <金額> [貨幣]（/pay help 查看說明）"
+    permission: tokaEconomy.pay
+  exchange:
+    description: 依設定的匯率兌換貨幣
+    usage: "/exchange <來源貨幣> <目標貨幣> <金額>（/exchange help 查看說明）"
+    permission: tokaEconomy.exchange
+  economy:
+    description: 經濟指令：排行榜 top 人人可用，其餘（give、take、set、see、reload、vacuum、ledger、rates）為管理員
+    usage: "/economy <top|see|give|take|set|reload|vacuum|ledger|rates|help>（/economy help 查看完整說明）"
+    aliases: [eco]
+    permission: tokaEconomy.use
+permissions:
+  tokaEconomy.balance:
+    description: 使用 /balance 查看自己的餘額
+    default: true
+  tokaEconomy.pay:
+    description: 使用 /pay 轉帳
+    default: true
+  tokaEconomy.exchange:
+    description: 使用 /exchange 兌換貨幣
+    default: true
+  tokaEconomy.use:
+    description: 使用 /economy（子指令另有各自的權限）
+    default: true
+  tokaEconomy.top:
+    description: 使用 /economy top 與 /topmoney 查看排行榜
+    default: true
+  tokaEconomy.see:
+    description: 查看其他玩家的餘額（/economy see、/seemoney、/balance <玩家>）
+    default: op
+  tokaEconomy.admin:
+    description: 管理指令（give、take、set、reload、vacuum、ledger、rates 與相容指令）
+    default: op
+  tokaEconomy.fee.free:
+    description: 轉帳不收手續費
+    default: false

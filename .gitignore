@@ -1,0 +1,17 @@
+/target/
+/out/
+/output/
+*.class
+/.build-tools/
+.idea/
+*.iml
+logs/
+*.log
+hs_err_pid*
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+.env
+.env.*
+/storage/

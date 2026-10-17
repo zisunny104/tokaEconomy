@@ -1,0 +1,146 @@
+# tokaEconomy 繁體中文語系檔（zh-TW）
+#
+# 插件所有「使用者看得到的文字」都在這裡。伺服器擁有者可把同名檔放進
+# plugins/tokaEconomy/lang/zh-TW.yml 覆蓋個別文字，沒寫到的 key 仍使用內建內容。
+# 貨幣名稱不在這裡，而是寫在 config.yml 的 currencies.<代碼>.names。
+#
+# 參數：${0}、${1}… 依序代表程式傳入的值。
+# 色碼：§b 一般文字　§a 數字與名稱　§e 指令與警告　§c 錯誤　§7 次要說明　§6 標題　§r 重設
+# 後台 log 不加方括號標籤；玩家訊息固定使用前綴 ui.prefix。
+
+# ───────────────────────── 用法（cmd） ─────────────────────────
+cmd:
+  balance:
+    usage: "/balance [玩家] [貨幣]"
+  pay:
+    usage: "/pay <玩家> <金額> [貨幣]"
+  exchange:
+    usage: "/exchange <來源貨幣> <目標貨幣> <金額>"
+  economy:
+    usage: "/economy <top|see|give|take|set|reload|vacuum|ledger|rates|help>"
+    give:
+      usage: "/economy give <玩家> <金額> [貨幣]"
+    take:
+      usage: "/economy take <玩家> <金額> [貨幣]"
+    set:
+      usage: "/economy set <玩家> <金額> [貨幣]"
+
+# ───────────────────────── 說明（help） ─────────────────────────
+# 每份清單的第一行是標題，其餘行會分頁。
+help:
+  balance:
+    - "§6=== §f§l/balance 查看餘額§r §6==="
+    - "§e/balance §7- §b查看自己的各種貨幣餘額（別名 /bal、/money）"
+    - "§e/balance <玩家> [貨幣] §7- §b查看其他玩家的餘額（需要 tokaEconomy.see）"
+    - "§e/balance help §7- §b顯示此說明"
+  pay:
+    - "§6=== §f§l/pay 轉帳§r §6==="
+    - "§e/pay <玩家> <金額> [貨幣] §7- §b轉帳給玩家，不寫貨幣時使用主要貨幣"
+    - "§7手續費由轉出方在金額之外另付，規則見 config.yml 的 fee 與 fee-rules"
+    - "§e/pay help §7- §b顯示此說明"
+  exchange:
+    - "§6=== §f§l/exchange 兌換§r §6==="
+    - "§e/exchange §7- §b列出可用的匯率"
+    - "§e/exchange <來源貨幣> <目標貨幣> <金額> §7- §b依匯率兌換，所得無條件捨去為整數"
+    - "§e/exchange help §7- §b顯示此說明"
+  economy:
+    - "§6=== §f§l經濟指令說明§r §6=== §7（別名 /eco；<必填>、[選填]）"
+    - "§e/balance [玩家] [貨幣] §7- §b查看餘額（別名 /bal、/money）"
+    - "§e/pay <玩家> <金額> [貨幣] §7- §b轉帳給玩家"
+    - "§e/exchange <來源貨幣> <目標貨幣> <金額> §7- §b兌換貨幣"
+    - "§e/economy top [貨幣] [頁] §7- §b排行榜（別名 /topmoney）"
+    - "§e/economy see [玩家] [貨幣] §7- §b查看餘額（別名 /seemoney；看他人需 OP）"
+    - "§e/economy give <玩家> <金額> [貨幣] §7- §b給予（相容 /givemoney）"
+    - "§e/economy take <玩家> <金額> [貨幣] §7- §b扣除（相容 /takemoney）"
+    - "§e/economy set <玩家> <金額> [貨幣] §7- §b設定餘額（相容 /setmoney）"
+    - "§e/economy ledger [玩家] [頁] §7- §b查詢交易紀錄"
+    - "§e/economy rates §7- §b列出匯率"
+    - "§e/economy reload §7- §b重新讀取 config.yml（不需重啟）"
+    - "§e/economy vacuum §7- §b立即清理過期的交易紀錄"
+    - "§e/economy help [頁|all] §7- §b顯示此說明，all 一次全列"
+
+# ───────────────────────── 訊息（msg） ─────────────────────────
+msg:
+  balance:
+    self: "§6=== §f§l你的餘額§r §6==="
+    other: "§6=== §f§l${0} 的餘額§r §6==="
+    line: "§b${0}：§a${1}"
+  pay:
+    sent: "§b已轉給 §a${1}§b：§a${0}§b，餘額 §a${3}"
+    sentFee: "§b已轉給 §a${1}§b：§a${0}§b，手續費 §a${2}§b，餘額 §a${3}"
+    received: "§a${1}§b 轉給你 §a${0}"
+  exchange:
+    none: "§b目前沒有設定可兌換的匯率"
+    done: "§b已用 §a${0}§b 兌換 §a${1}§b，餘額 §a${2}§b、§a${3}"
+  admin:
+    give: "§b已給予 §a${0}§b：§a${1}§b，餘額 §a${2}"
+    take: "§b已扣除 §a${0}§b：§a${1}§b，餘額 §a${2}"
+    set: "§b已設定 §a${0}§b 的餘額為 §a${1}"
+  ledger:
+    header: "§6=== §f§l交易紀錄§r §6=== §7共 ${0} 筆"
+    line: "§7${0} §b${1} §7→ §b${2} §a${3} §7${4}（${5}）"
+    empty: "§b沒有交易紀錄"
+  rates:
+    header: "§6=== §f§l匯率§r §6==="
+    line: "§b1 ${0} = §a${2}§b ${1}"
+  top:
+    header: "§6=== §f§l${0}排行榜§r §6==="
+    line: "§7${0}. §b${1} §a${2}"
+    empty: "§b還沒有人持有這種貨幣"
+  reload:
+    ok: "§a已重新載入設定"
+  vacuum:
+    started: "§b開始清理交易紀錄"
+    done: "§b已清理 §a${0}§b 筆交易紀錄"
+
+# ───────────────────────── 錯誤（err） ─────────────────────────
+err:
+  playerOnly: "§c這個指令只能由遊戲內玩家使用"
+  noPermission: "§c你沒有權限使用這個指令"
+  noSee: "§c只有管理員能查看其他玩家的餘額"
+  usage: "§c用法：§e${0}"
+  player:
+    notFound: "§c找不到玩家 §a${0}"
+  noAccount: "§c${0} 沒有帳戶"
+  amount: "§c金額必須是大於 0 的整數"
+  currency: "§c沒有 §a${0}§c 這種貨幣，可用：§a${1}"
+  insufficient: "§c餘額不足，需要 §a${0}§c，目前 §a${1}"
+  overflow: "§c金額過大，餘額無法容納"
+  self: "§c不能轉給自己"
+  noRate: "§c沒有 §a${0}§c 的匯率"
+  unavailable: "§c經濟服務目前無法使用"
+  reload: "§c設定無效，沿用原設定：${0}"
+  vacuum: "§c清理失敗，詳見後台 log"
+
+# ───────────────────────── 介面（ui） ─────────────────────────
+ui:
+  prefix: "§7[經濟]§r "
+  page:
+    footer: "§7第 §a${0}§7/§a${1}§7 頁，用 §e${2} <頁碼>§7 換頁"
+
+# ───────────────────────── 後台 log（log） ─────────────────────────
+log:
+  ready: "經濟服務已啟動：${0} 種貨幣，${1} 筆交易紀錄"
+  configInvalid: "config.yml 無效，插件停用：${0}"
+  storeFailed: "資料庫無法開啟或寫入"
+  writeFailed: "背景寫入失敗，記憶體中的餘額已更新但尚未存檔"
+  cleanupFailed: "清理交易紀錄失敗"
+  cleanupDone: "已清理 ${0} 筆過期的交易紀錄"
+  drainTimeout: "關閉時等待寫入逾時（10 秒），部分變更可能未存檔"
+  reloaded: "已重新載入設定：${0} 種貨幣"
+  commandSkipped: "指令 /${0} 已由 ${1} 使用，略過註冊"
+
+# ───────────────────────── 狀態文字（status） ─────────────────────────
+# status.reason.<代碼>：交易紀錄的原因；其他插件自訂的原因代碼找不到時直接顯示代碼。
+status:
+  system: "系統"
+  reason:
+    transfer: "轉帳"
+    fee: "手續費"
+    exchange-out: "兌換轉出"
+    exchange-in: "兌換轉入"
+    initial: "起始餘額"
+    give: "給予"
+    take: "扣除"
+    set: "設定"
+    api: "其他插件"

@@ -1,0 +1,87 @@
+# tokaEconomy 設定檔
+# 修改貨幣、手續費、兌換與紀錄設定後，執行 /economy reload 即可生效。
+# 修改 language 需重新啟動伺服器。
+
+# 顯示語言，決定 lang/<語言>.yml 的文字，也是貨幣名稱缺語言時的回退語言。
+language: zh-TW
+
+# /economy help 每頁行數（3 以上的整數）
+help-lines-per-page: 8
+
+# /economy top 排行榜每頁行數（3 以上的整數）
+top-lines-per-page: 10
+
+# 是否註冊相容 EconomyAPI 的指令 /givemoney、/takemoney、/setmoney（參數順序同 /economy give|take|set）。
+# 名稱已被其他插件使用時會略過並寫入 log。修改後需重新啟動伺服器。
+compat-commands: true
+
+# 貨幣清單。區塊名稱是貨幣代碼，只能用小寫英數字，長度 2 到 16，建立後不可更改（資料庫只存代碼）。
+# 不在清單內的代碼一律視為無效；從清單移除貨幣不會刪除餘額，重新加回即可恢復。
+#   primary  是否為主要貨幣，必須恰好一種為 true
+#   symbol   金額前的符號
+#   initial  新帳戶的起始餘額（0 以上的整數）
+#   fee-min  這種貨幣的手續費最低額；不寫則使用 fee.min
+#   names    各語言的顯示名稱，可留空；缺少該語言時使用 language 的名稱，再退回代碼
+currencies:
+  money:
+    primary: true
+    symbol: "$"
+    initial: 0
+    names:
+      zh-TW: 銀幣
+      en-US: Silver
+  coin:
+    symbol: "◎"
+    initial: 0
+    names:
+      zh-TW: 金幣
+      en-US: Gold
+
+# 玩家對玩家轉帳（/pay 與 API transfer）的基本手續費；系統加扣不收。
+# 手續費由轉出方在轉帳金額之外另付，無條件捨去為整數。
+fee:
+  # 費率，百分比（0 到 100），可含小數
+  rate: 1
+  # 最低額，0 以上的整數
+  min: 10
+
+# 手續費規則，預設空清單。每條規則的條件全部符合才生效（沒寫的條件不限制）：
+#   permission  轉出方擁有的權限節點
+#   min-amount、max-amount  轉帳金額下限、上限
+#   time        每日時段，格式 "HH:mm-HH:mm"，可跨午夜
+#   days        星期，可填 mon、tue、wed、thu、fri、sat、sun
+#   dates       日期期間 {from: "2026-12-24", to: "2026-12-26"}，含頭尾，日期要加引號
+#   count       次數 {limit: 3, period: day}：該週期內前 limit 筆轉帳適用；
+#               period 可填 day、week（週一起算）、month、quarter，
+#               或改用 from、to 指定起訖日期；次數由交易紀錄統計
+# 效果擇一：free: true（免手續費）或 discount: 50（折扣百分比，1 到 100）。
+# 同時符合多條時取最優惠的一條；規則加 stack: true 則與其他條疊加，總折扣最多 100%。
+# 另有權限 tokaEconomy.fee.free，擁有者一律免手續費。
+# 範例：
+#fee-rules:
+#  - permission: tokaEconomy.fee.vip
+#    discount: 50
+#  - time: "00:00-06:00"
+#    days: [sat, sun]
+#    discount: 30
+#    stack: true
+#  - count: {limit: 3, period: day}
+#    free: true
+fee-rules: []
+
+# 貨幣兌換。rates.<來源貨幣>.<目標貨幣>: 匯率，兌換所得 = 金額 × 匯率，無條件捨去為整數。
+# 沒有列出的組合不能兌換；反向要另外列。
+exchange:
+  rates:
+    money:
+      coin: 0.01
+    coin:
+      money: 90
+
+# 交易紀錄（ledger）清理。餘額不會被清理。0 代表不限制。
+# 啟動後與之後每天在背景分批刪除，不影響遊戲；/economy vacuum 可立即執行。
+ledger:
+  # 保留天數
+  keep-days: 365
+  # 最多保留筆數（超過時刪除最舊的）
+  max-rows: 200000
