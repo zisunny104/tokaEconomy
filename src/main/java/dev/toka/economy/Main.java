@@ -17,6 +17,8 @@ import dev.toka.economy.command.Line;
 import dev.toka.economy.core.EconomyService;
 import dev.toka.economy.core.Settings;
 import dev.toka.economy.storage.DocPersist;
+import dev.toka.economy.window.EconomyWindows;
+import dev.toka.economy.window.WindowSettings;
 import dev.toka.i18n.Messages;
 
 import java.io.File;
@@ -39,6 +41,8 @@ public final class Main extends PluginBase implements Listener {
     private DocPersist persist;
     private Players players;
     private CommandLogic logic;
+    private EconomyWindows windows;
+    private volatile WindowSettings windowSettings;
 
     @Override
     public void onEnable() {
@@ -61,6 +65,9 @@ public final class Main extends PluginBase implements Listener {
         }
         players = new Players(this, service);
         logic = new CommandLogic(service, players, messages);
+        windowSettings = WindowSettings.parse(getConfig().getAll());
+        windows = new EconomyWindows(service, logic, messages, () -> windowSettings, this::send);
+        EconomyWindows.register(this);
         Economy.install(service, players);
         getServer().getPluginManager().registerEvents(this, this);
         registerExtraCommands(service.settings().compatCommands());
@@ -192,6 +199,10 @@ public final class Main extends PluginBase implements Listener {
             sendHelp(sender, action, args.length > 1 ? args[1] : null);
             return;
         }
+        if (action.equals("balance") && args.length == 0 && sender instanceof Player player) {
+            windows.open(player);
+            return;
+        }
         switch (action) {
             case "balance", "see" -> logic.balance(caller, sender.hasPermission(PERM_SEE), args, out);
             case "pay" -> logic.pay(caller, args, out);
@@ -244,6 +255,9 @@ public final class Main extends PluginBase implements Listener {
                 || key.equals("msg.top.empty") || key.equals("msg.ledger.empty"));
     }
 
+    private record Loaded(Settings settings, WindowSettings windows) {
+    }
+
     private void reload(CommandSender sender) {
         File file = new File(getDataFolder(), "config.yml");
         getServer().getScheduler().scheduleAsyncTask(this, new AsyncTask() {
@@ -251,7 +265,7 @@ public final class Main extends PluginBase implements Listener {
             public void onRun() {
                 try {
                     Map<String, Object> root = new Config(file, Config.YAML).getAll();
-                    setResult(Settings.parse(root));
+                    setResult(new Loaded(Settings.parse(root), WindowSettings.parse(root)));
                 } catch (RuntimeException e) {
                     setResult(e);
                 }
@@ -260,8 +274,10 @@ public final class Main extends PluginBase implements Listener {
             @Override
             public void onCompletion(cn.nukkit.Server server) {
                 Object result = getResult();
-                if (result instanceof Settings settings) {
+                if (result instanceof Loaded loaded) {
+                    Settings settings = loaded.settings();
                     service.settings(settings);
+                    windowSettings = loaded.windows();
                     sender.sendMessage(messages.text("ui.prefix") + messages.text("msg.reload.ok"));
                     getLogger().info(messages.text("log.reloaded", settings.currencies().size()));
                 } else {

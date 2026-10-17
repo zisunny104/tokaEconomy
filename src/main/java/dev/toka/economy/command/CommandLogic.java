@@ -23,6 +23,8 @@ import java.util.regex.Pattern;
 public final class CommandLogic {
     private static final Pattern DIGITS = Pattern.compile("[0-9]{1,18}");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("MM-dd HH:mm");
+    /** Starts with the year and ends with the seconds, so the texts of a window sort in time order. */
+    private static final DateTimeFormatter TIME_FULL = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final EconomyService service;
     private final Names names;
@@ -84,6 +86,17 @@ public final class CommandLogic {
     private List<Line> balances(UUID id, boolean self, String name, String only) {
         List<Line> lines = new ArrayList<>();
         lines.add(self ? Line.of("msg.balance.self") : Line.of("msg.balance.other", name));
+        lines.addAll(balanceRows(id, only));
+        return lines;
+    }
+
+    /** One line per currency, the main one first; the windows show these too. */
+    public List<Line> balanceRows(UUID id) {
+        return balanceRows(id, null);
+    }
+
+    private List<Line> balanceRows(UUID id, String only) {
+        List<Line> lines = new ArrayList<>();
         List<String> codes = new ArrayList<>(service.currencies());
         codes.remove(service.primary());
         codes.add(0, service.primary());
@@ -306,12 +319,54 @@ public final class CommandLogic {
             return lines;
         }
         for (EconomyService.Rank rank : p.entries()) {
-            lines.add(Line.of("msg.top.line", rank.rank(), rank.name().isEmpty() ? names.display(rank.uuid()) : rank.name(), service.format(rank.balance(), code, true)));
+            lines.add(Line.of("msg.top.line", rank.rank(), rankName(rank), service.format(rank.balance(), code, true)));
         }
         if (p.pages() > 1) {
             lines.add(Line.of("ui.page.footer", p.page(), p.pages(), "/economy top " + code));
         }
         return lines;
+    }
+
+    /**
+     * The leaderboard for a window: the richest {@code limit} accounts, one line each (ui.top.row, or ui.top.self for the player
+     * {@code self}; arguments: name, amount, rank).
+     *
+     * @param selfRank the rank of {@code self} among these lines, or 0 when not listed
+     */
+    public record Board(List<Line> rows, int selfRank) {
+    }
+
+    public Board board(String code, int limit, UUID self) {
+        EconomyService.TopPage p = service.top(code, 1, Math.max(1, limit));
+        List<Line> rows = new ArrayList<>();
+        int selfRank = 0;
+        for (EconomyService.Rank rank : p.entries()) {
+            boolean me = rank.uuid().equals(self);
+            if (me) {
+                selfRank = rank.rank();
+            }
+            rows.add(Line.of(me ? "ui.top.self" : "ui.top.row", rankName(rank), service.format(rank.balance(), code, true), rank.rank()));
+        }
+        return new Board(rows, selfRank);
+    }
+
+    private String rankName(EconomyService.Rank rank) {
+        return rank.name().isEmpty() ? names.display(rank.uuid()) : rank.name();
+    }
+
+    /**
+     * The ledger of one player for a window, newest first, at most {@code limit} rows. ui.ledger.out when the player paid,
+     * ui.ledger.in when the player received; arguments: time, reason, amount, the other side.
+     */
+    public List<Line> ledgerRows(UUID who, int limit) {
+        List<Line> rows = new ArrayList<>();
+        for (LedgerEntry e : service.ledger(who, 1, Math.max(1, limit)).entries()) {
+            boolean out = who.equals(e.from());
+            rows.add(Line.of(out ? "ui.ledger.out" : "ui.ledger.in",
+                    LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(e.time()), service.zone()).format(TIME_FULL),
+                    reason(e.reason()), service.format(e.amount(), e.currency(), true), party(out ? e.to() : e.from())));
+        }
+        return rows;
     }
 
     // ---- shared ----------------------------------------------------------------------------------------------------

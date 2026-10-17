@@ -1,14 +1,14 @@
 name: tokaEconomy
 main: dev.toka.economy.Main
-version: 0.1.0
+version: 0.2.0
 api: ["1.0.0"]
 author: zisunny104
 load: STARTUP
 softdepend: [tokaProfiles]
-description: Nukkit 多貨幣經濟服務：餘額、轉帳手續費、貨幣兌換、排行榜與交易紀錄，並提供給其他插件呼叫的 API
+description: Nukkit 多貨幣經濟服務：餘額、轉帳手續費、貨幣兌換、排行榜與交易紀錄，附玩家視窗，並提供給其他插件呼叫的 API
 commands:
   balance:
-    description: 查看自己的餘額；管理員可查看其他玩家（別名 bal、money）
+    description: 開啟錢包視窗（餘額、轉帳、兌換、排行榜、交易紀錄）；帶玩家參數則以文字查看，管理員可查看其他玩家（別名 bal、money）
     usage: "/balance [玩家] [貨幣]（/balance help 查看說明）"
     permission: tokaEconomy.balance
   pay:
