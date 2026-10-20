@@ -103,12 +103,9 @@ ledger:
   # 最多保留筆數（超過時刪除最舊的）
   max-rows: 200000
 
-# 選用 Plan DataExtension。餘額屬敏感資訊，預設不公開；逐貨幣設 true 才會輸出。
+# 選用 Plan DataExtension；預設 auto 自動發布核准摘要，fields 可限制貨幣餘額。
 # 修改後 /economy reload 生效。關閉只停止後續收集，既有 Plan 資料須在 Plan 管理。
 plan:
-  enabled: false
-  account: false
-  balances:
-    money: false
-    coin: false
+  mode: auto # auto 自動偵測；enable 未就緒時提示；disable 不發布。
+  fields: all # all | none | 欄位清單；指令可逐項管理。
 

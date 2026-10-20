@@ -14,4 +14,9 @@ public interface Persist {
     default void save(Map<String, JsonObject> documents) {
         save(documents, List.of());
     }
+
+    /** Completes only after the atomic batch has reached the store. */
+    default java.util.concurrent.CompletableFuture<Void> saveConfirmed(Map<String, JsonObject> documents) {
+        return java.util.concurrent.CompletableFuture.failedFuture(new UnsupportedOperationException("Confirmed writes unavailable"));
+    }
 }

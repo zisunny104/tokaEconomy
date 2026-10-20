@@ -51,6 +51,7 @@ public final class Main extends PluginBase implements Listener {
     private volatile boolean sidebarShow = true;
     private PlanSettings planSettings;
     private AutoCloseable plan;
+    private dev.toka.economy.plan.PlanControl planControl;
 
     @Override
     public void onEnable() {
@@ -126,6 +127,7 @@ public final class Main extends PluginBase implements Listener {
     }
 
     private void closePlan() {
+        if(planControl!=null)planControl.registered(false);
         if (plan == null) return;
         try { plan.close(); }
         catch (Exception | LinkageError error) { getLogger().warning(messages.text("plan.unavailable", error.getClass().getSimpleName())); }
@@ -134,12 +136,14 @@ public final class Main extends PluginBase implements Listener {
 
     private void refreshPlan() {
         closePlan();
+        if(planControl==null)planControl=new dev.toka.economy.plan.PlanControl(this,this::refreshPlan,()->{var ids=new java.util.HashSet<String>();ids.add("account");service.currencies().forEach(code->ids.add("balance."+code));return ids;},(key,args)->messages.text(key,args),"economy");
+        planSettings=PlanSettings.parse(getConfig().getAll());
         cn.nukkit.plugin.Plugin plugin = getServer().getPluginManager().getPlugin("Plan");
-        if (planSettings == null || !planSettings.enabled() || plugin == null || !plugin.isEnabled()) return;
+        if (!planControl.shouldRegister()) return;
         try {
             PlanExtension extension = new PlanExtension(service, messages, planSettings);
             if (extension.register()) {
-                plan = extension;
+                plan = extension;planControl.registered(true);
                 getLogger().info(messages.text("plan.ready"));
             } else getLogger().warning(messages.text("plan.unsupported"));
         } catch (RuntimeException | LinkageError error) {
@@ -244,7 +248,10 @@ public final class Main extends PluginBase implements Listener {
         return true;
     }
 
+    public String planStatusJson(){return planControl.statusJson();}
+    public boolean configurePlan(String mode,String[] fields){return planControl.configure(mode,fields);}
     private void economy(CommandSender sender, String[] args) {
+        if(planControl!=null && planControl.command(sender,args,PERM_ADMIN))return;
         if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
             run(sender, "help", args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0]);
             return;

@@ -20,6 +20,8 @@ public final class Codec {
         public final UUID uuid;
         public String name;
         public final Map<String, Long> balances = new HashMap<>();
+        /** Durable idempotency receipts; saved atomically with the balance, never pruned with the ledger. */
+        public final Map<String, JsonObject> receipts = new HashMap<>();
 
         public Account(UUID uuid, String name) {
             this.uuid = uuid;
@@ -97,12 +99,18 @@ public final class Codec {
         JsonObject balances = new JsonObject();
         account.balances.forEach(balances::addProperty);
         doc.add("balances", balances);
+        JsonObject receipts = new JsonObject();
+        account.receipts.forEach((key, value) -> receipts.add(key, value.deepCopy()));
+        doc.add("receipts", receipts);
         return doc;
     }
 
     public static Account decodeAccount(JsonObject doc) {
         Account account = new Account(UUID.fromString(doc.get("uuid").getAsString()), doc.get("name").getAsString());
         doc.getAsJsonObject("balances").entrySet().forEach(e -> account.balances.put(e.getKey(), e.getValue().getAsLong()));
+        if (doc.has("receipts")) {
+            doc.getAsJsonObject("receipts").entrySet().forEach(e -> account.receipts.put(e.getKey(), e.getValue().getAsJsonObject().deepCopy()));
+        }
         return account;
     }
 

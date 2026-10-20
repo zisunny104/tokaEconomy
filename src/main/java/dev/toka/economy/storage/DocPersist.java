@@ -48,6 +48,25 @@ public final class DocPersist implements Persist, AutoCloseable {
         });
     }
 
+    @Override
+    public CompletableFuture<Void> saveConfirmed(Map<String, JsonObject> documents) {
+        Map<String, JsonObject> copy = new java.util.LinkedHashMap<>();
+        documents.forEach((key, value) -> copy.put(key, value.deepCopy()));
+        CompletableFuture<Void> done = new CompletableFuture<>();
+        boolean accepted = writer.submit("log.writeFailed", () -> {
+            try {
+                store.saveAll(copy);
+                done.complete(null);
+            } catch (Throwable error) {
+                done.completeExceptionally(error);
+                if (error instanceof IOException io) throw io;
+                throw new IOException(error);
+            }
+        });
+        if (!accepted) done.completeExceptionally(new IllegalStateException("writer stopped"));
+        return done;
+    }
+
     /** Deletes old ledger rows in small steps, each a separate write so that saves are not held up. */
     public CompletableFuture<Integer> cleanup(EconomyService service) {
         CompletableFuture<Integer> done = new CompletableFuture<>();

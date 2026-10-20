@@ -156,10 +156,23 @@ if (!r.ok()) { /* r.status() */ }
 
 ### Plan 選用整合（0.4.0）
 
-`plan.enabled: true` 後向 Plan DataExtension 提供玩家頁面資料；`plan.account` 控制是否顯示帳戶存在，`plan.balances.<貨幣代碼>: true` 才會公開該貨幣餘額。預設停用，餘額逐項預設關閉。Plan 網頁的資料閱覽權限由 Plan 管理，請先確認誰可查看玩家頁面。
+向 Plan DataExtension 提供玩家頁面摘要，預設 `plan.mode: auto`、`plan.fields: all`；可改成 `none` 或指定 `account`、`balance.<貨幣代碼>`。Plan 網頁的資料閱覽權限由 Plan 管理，請先確認誰可查看玩家頁面。
 
 使用官方 `com.djrapitops:plan-api:5.7-R0.2` 作 provided 依賴（不打包 Plan），實際檢查 Plan 5.8 build 3638 的 Builder API 相容。執行時檢查 `DATA_EXTENSION_BUILDER_API`；Plan 缺少、停用或不相容不影響經濟功能。支援 Plan 啟用/停用事件，以及 `/economy reload` 重新註冊。Plan 自身停用這個擴充時尊重其設定。
 
 Provider 在 Plan 背景執行緒僅使用執行緒安全的記憶體查詢，產生不可變 `Snapshot`；不讀取世界、玩家物件或資料庫，不建立帳戶、不改餘額。讀取跨幣別期間有交易時可能反映不同瞬間，此展示不作財務結算依據。沒有公開 UUID/名稱對照、舊名資料、交易對象或交易明細。
 
 欄位名稱與整合訊息在 `lang/zh-TW.yml` 的 `plan` 區塊，由 tokaI18n 載入。Plan 使用欄位文字作資料識別，因此調整翻譯或關閉欄位只停止後續收集，Plan 已保存的舊欄位/餘額不會自動刪除，須在 Plan 管理並確認保留政策。
+
+
+### Plan 模式與管理指令
+
+預設 `plan.mode: auto`、`plan.fields: all`。`auto` 偵測到可用 Plan 就啟用；`enable` 未就緒時提示；`disable` 一定不發布。all 僅包含本插件核准的摘要欄位，沒有憑證、Discord ID 或私人座標。
+
+管理員可用 `/economy plan status`、`/economy plan mode <auto|enable|disable>`、`/economy plan fields <all|none|欄位...>`；變更保存設定且即時套用，保留其他設定及註解。舊 `plan.enabled`／逐項布林仍相容，明確設定的新 mode／fields 優先。
+
+API（主執行緒）：`planStatusJson()`、`configurePlan(String mode, String[] fields)`；null 表示該項沿用。
+
+### 可重試的獎勵入帳
+
+depositOnce 使用來源、玩家 UUID 與 operation ID 去重；回傳成功前會確認帳戶與收據已寫入儲存。相同 ID 的不同金額或貨幣會拒絕；失敗時以相同 ID 重試，勿產生新 ID。完成回呼可能在背景執行緒，不可直接操作遊戲世界。收據隨帳戶保留；開始使用後不要降版到不支援收據的版本，以免失去去重紀錄。

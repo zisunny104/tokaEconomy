@@ -107,6 +107,17 @@ public final class Economy {
         return deposit(player.getUniqueId(), currency, amount, cause);
     }
 
+    /**
+     * Gives a reward at most once per player/source/operation ID, including retries after
+     * restart. The future completes after the balance and receipt are persisted together.
+     * Continuations may run off the main thread; schedule Nukkit operations yourself.
+     */
+    public static java.util.concurrent.CompletableFuture<Result> depositOnce(UUID id, String currency, long amount, Cause cause, String operationId) {
+        EconomyService s = service;
+        return s == null ? java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.UNAVAILABLE))
+                : s.depositOnce(id, currency, amount, cause, operationId);
+    }
+
     public static Result withdraw(UUID id, String currency, long amount, Cause cause) {
         EconomyService s = service;
         return s == null ? Result.fail(Status.UNAVAILABLE) : s.withdraw(id, currency, amount, cause);

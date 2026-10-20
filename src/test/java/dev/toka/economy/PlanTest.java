@@ -32,7 +32,7 @@ public class PlanTest {
         try { extension.snapshot(id); fail(); } catch (NotReadyException expected) {}
     }
     @Test public void defaultsArePrivateAndConcurrentReadsDoNotCreateAccounts() throws Exception {
-        assertFalse(PlanSettings.parse(Map.of()).enabled());
+        assertTrue(PlanSettings.parse(Map.of()).enabled());
         assertTrue(PlanSettings.parse(Map.of()).balances().isEmpty());
         var service = TestSupport.service(TestSupport.settings(), new TestSupport.MemoryPersist(),
                 new TestSupport.MovableClock("2026-10-20T00:00:00Z"), Set.of());

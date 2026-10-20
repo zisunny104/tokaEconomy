@@ -24,6 +24,13 @@ import java.util.*;
  * happens completely or not at all. Calls are safe from any thread.
  */
 public final class EconomyService {
+    private final Map<String, PaymentAttempt> paymentAttempts = new HashMap<>();
+
+    private static final class PaymentAttempt {
+        final Map<String, JsonObject> ledger;
+        java.util.concurrent.CompletableFuture<Result> future;
+        PaymentAttempt(Map<String, JsonObject> ledger) { this.ledger = Map.copyOf(ledger); }
+    }
     public static final String FREE_PERMISSION = "tokaEconomy.fee.free";
 
     /** A page of ledger rows, newest first. */
@@ -178,6 +185,85 @@ public final class EconomyService {
             persist.save(batch);
             return new Result(Status.OK, amount, 0, now + amount, 0);
         }
+    }
+
+    /**
+     * Durable, idempotent deposit for rewards. The same source and operation ID must always
+     * describe the same amount/currency. Completion can be on the writer thread.
+     */
+    public java.util.concurrent.CompletableFuture<Result> depositOnce(UUID id, String code, long amount, Cause cause, String operationId) {
+        Objects.requireNonNull(id);
+        Objects.requireNonNull(cause);
+        if (operationId == null || operationId.isBlank() || operationId.length() > 160 || operationId.chars().anyMatch(Character::isISOControl)) {
+            return java.util.concurrent.CompletableFuture.failedFuture(new IllegalArgumentException("Invalid operation ID"));
+        }
+        Currency currency = currency(code);
+        if (currency == null) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.UNKNOWN_CURRENCY));
+        if (amount <= 0) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.INVALID_AMOUNT));
+        String key = receiptKey(cause.source(), operationId);
+        String pendingKey = id + ":" + key;
+        synchronized (lock) {
+            Account account = accounts.get(id);
+            if (account == null) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.NO_ACCOUNT));
+            JsonObject receipt = account.receipts.get(key);
+            PaymentAttempt attempt = paymentAttempts.get(pendingKey);
+            if (receipt != null) {
+                if (!receipt.get("operation").getAsString().equals(operationId)
+                        || !receipt.get("source").getAsString().equals(cause.source())
+                        || !receipt.get("currency").getAsString().equals(currency.code())
+                        || receipt.get("amount").getAsLong() != amount) {
+                    return java.util.concurrent.CompletableFuture.failedFuture(new IllegalArgumentException("Operation ID reused with different payment"));
+                }
+                if (attempt == null) return java.util.concurrent.CompletableFuture.completedFuture(receiptResult(receipt));
+                if (attempt.future != null && !attempt.future.isDone()) return attempt.future.copy();
+            } else {
+                long balance = account.balance(currency.code());
+                if (balance > Long.MAX_VALUE - amount) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.OVERFLOW));
+                receipt = new JsonObject();
+                receipt.addProperty("operation", operationId);
+                receipt.addProperty("source", cause.source());
+                receipt.addProperty("currency", currency.code());
+                receipt.addProperty("amount", amount);
+                receipt.addProperty("balance", balance + amount);
+                receipt.addProperty("time", clock.millis());
+                account.balances.put(currency.code(), balance + amount);
+                account.receipts.put(key, receipt);
+                Map<String, JsonObject> ledger = new LinkedHashMap<>();
+                log(ledger, currency.code(), null, id, amount, cause);
+                attempt = new PaymentAttempt(ledger);
+                paymentAttempts.put(pendingKey, attempt);
+            }
+            // Every ordinary account write also includes the receipt. A later successful
+            // account write can never persist this credit without its deduplication token.
+            Map<String, JsonObject> batch = new LinkedHashMap<>(attempt.ledger);
+            batch.put(Codec.accountKey(id), Codec.encode(account));
+            java.util.concurrent.CompletableFuture<Result> answer = new java.util.concurrent.CompletableFuture<>();
+            attempt.future = answer;
+            Result result = receiptResult(receipt);
+            java.util.concurrent.CompletableFuture<Void> saved;
+            try { saved = persist.saveConfirmed(batch); }
+            catch (RuntimeException error) { answer.completeExceptionally(error); return answer.copy(); }
+            saved.whenComplete((ignored, error) -> {
+                if (error != null) {
+                    answer.completeExceptionally(error);
+                } else {
+                    synchronized (lock) { paymentAttempts.remove(pendingKey); }
+                    answer.complete(result);
+                }
+            });
+            return answer.copy();
+        }
+    }
+
+    private static Result receiptResult(JsonObject receipt) {
+        return new Result(Status.OK, receipt.get("amount").getAsLong(), 0, receipt.get("balance").getAsLong(), 0);
+    }
+
+    private static String receiptKey(String source, String operation) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest((source + "\u0000" + operation).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException impossible) { throw new AssertionError(impossible); }
     }
 
     public Result withdraw(UUID id, String code, long amount, Cause cause) {
