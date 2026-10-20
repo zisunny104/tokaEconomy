@@ -107,7 +107,8 @@ ledger:
 # 修改後 /economy reload 生效。關閉只停止後續收集，既有 Plan 資料須在 Plan 管理。
 plan:
   enabled: false
-  account: true
+  account: false
   balances:
     money: false
     coin: false
+
