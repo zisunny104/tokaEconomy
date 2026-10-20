@@ -1,71 +1,69 @@
 # tokaEconomy
 
-**tokaEconomy 0.3.0**：多貨幣經濟服務。玩家有各貨幣的餘額，可轉帳（依規則收手續費）、兌換貨幣、看排行榜，並有 `/balance` 玩家視窗；管理員可給予、扣除、設定餘額並查交易紀錄；其他插件可直接呼叫 API；舊的名稱帳戶可匯入，同名玩家登入時自動取回。需要 Java 21。tokaProfiles 為選用（有裝才用於名稱對應）。
+多貨幣餘額、轉帳、兌換、排行榜與交易紀錄。輸入 `/balance` 開啟錢包選單；管理員可調整餘額及管理舊名稱帳戶。
 
-- 帳戶以 UUID 為準，金額一律是整數（`long`），資料存在 `storage/sqlite`。
+需要 Java 21。tokaProfiles 的名稱對應尚未接入，目前使用線上玩家、已有帳戶及背景查詢的伺服器玩家檔。
+
+- 帳戶以 UUID 為準，金額一律是整數 `long`，資料存在 `storage/sqlite`。
 - 餘額先在記憶體更新，由單一背景執行緒存檔；關閉伺服器時最多等 10 秒寫完。
 - 貨幣只認 `config.yml` 內的代碼；貨幣名稱寫在設定檔，不在語系檔。
 
-（圖：`/balance` 錢包主視窗）
-
 ## 玩家指令
 
-| 指令 | 說明 | 權限（預設） |
+| 指令 | 說明 | 權限與預設 |
 | --- | --- | --- |
-| `/balance`（別名 `/bal`、`/money`） | 開啟錢包視窗（見下） | `tokaEconomy.balance`（所有人） |
-| `/balance <玩家> [貨幣]` | 文字輸出；看別人需要 `tokaEconomy.see` | `tokaEconomy.balance`（所有人） |
-| `/pay <玩家> <金額> [貨幣]` | 轉帳；不寫貨幣用主要貨幣；手續費由轉出方另付 | `tokaEconomy.pay`（所有人） |
-| `/exchange <來源貨幣> <目標貨幣> <金額>` | 依匯率兌換，所得無條件捨去；不加參數列出匯率；未設定匯率時會說明 | `tokaEconomy.exchange`（所有人） |
-| `/economy top [貨幣] [頁]`（別名 `/topmoney`） | 排行榜（只列餘額大於 0 的帳戶） | `tokaEconomy.top`（所有人） |
+| `/balance`、`/bal`、`/money` | 開啟錢包視窗 | `tokaEconomy.balance`，所有人 |
+| `/balance <玩家> [貨幣]` | 文字輸出；看別人需要 `tokaEconomy.see` | `tokaEconomy.balance`，所有人 |
+| `/pay <玩家> <金額> [貨幣]` | 轉帳；不寫貨幣用主要貨幣；手續費由轉出方另付 | `tokaEconomy.pay`，所有人 |
+| `/exchange <來源貨幣> <目標貨幣> <金額>` | 依匯率兌換，所得無條件捨去；不加參數列出匯率；未設定匯率時會說明 | `tokaEconomy.exchange`，所有人 |
+| `/economy top [貨幣] [頁]`、`/topmoney` | 顯示餘額大於 0 的帳戶排行榜 | `tokaEconomy.top`，所有人 |
 
 ## 玩家視窗
 
-`/balance`（玩家、不帶參數）開主選單；帶玩家參數、console 仍是文字輸出。轉帳、兌換、排行榜按鈕分別需要 `tokaEconomy.pay`、`tokaEconomy.exchange`、`tokaEconomy.top`，沒有權限或沒設匯率就隱藏。
+輸入 `/balance` 開啟錢包選單，指定玩家時顯示文字餘額。選單依權限與匯率設定顯示可用功能。
 
 ```
-錢包（各貨幣餘額，含符號、千分位）
+錢包：各貨幣餘額
 ├─ 轉帳：選線上玩家 → 金額＋貨幣 → 確認 → 結果訊息
 ├─ 兌換：選貨幣組合 → 金額 → 確認 → 結果訊息
-├─ 排行榜：選貨幣 → 分頁名次（標示自己）
+├─ 排行榜：選貨幣 → 分頁名次
 └─ 交易紀錄：自己的紀錄，分頁
 ```
 
 | 視窗 | 內容 |
 | --- | --- |
-| 選玩家 | 線上玩家（不含自己），可搜尋；沒有其他玩家時說明可改用 `/pay` |
-| 轉帳表單 | 金額；貨幣下拉（只有一種貨幣時隱藏，預設主要貨幣）；金額無效或餘額不足時回到表單並寫出原因 |
+| 選玩家 | 搜尋並選擇其他線上玩家 |
+| 轉帳表單 | 輸入金額與貨幣，資料有誤時顯示原因 |
 | 轉帳確認 | 對象、金額、手續費、實付合計、轉後餘額；按取消或關閉視窗即取消 |
 | 兌換 | 只列有匯率的組合，表單顯示匯率與持有量，確認視窗顯示可得數量 |
 | 排行榜 | 只有一種貨幣時略過選貨幣；自己的列加「（你）」，上方顯示名次 |
-| 交易紀錄 | 排序可選新到舊（預設）或舊到新（依紀錄時間與編號，同秒順序正確）；沒有紀錄時說明 |
+| 交易紀錄 | 分頁查看自己的紀錄，可依時間排序 |
 
-（圖：轉帳表單與確認視窗）（圖：排行榜）（圖：交易紀錄）
+清單可搜尋、排序及調整每頁數量，各清單分別記住設定，離線後清除。視窗元件已內建，無需安裝 tokaForms。
 
-每個清單第一顆按鈕固定是「返回」，項目多時有「搜尋／排序／每頁數量」，玩家的選擇保留到離開伺服器，每個清單（選玩家、兌換組合、排行榜、交易紀錄）各自記住。視窗元件已內建於本插件，不再需要 tokaForms。視窗只讀記憶體，不做磁碟存取；結果訊息與指令相同。
-
-各指令加 `help` 可看說明，例如 `/pay help`。後台（console）可用 `/balance <玩家>`、`/economy` 的管理子指令。
+各指令加 `help` 可看說明，例如 `/pay help`。主控台 console 可用 `/balance <玩家>`、`/economy` 的管理子指令。
 
 ## 管理指令
 
-`/economy`（別名 `/eco`）；除 `top` 外都需要權限。
+`/economy` 的別名為 `/eco`，權限如下。
 
-| 指令 | 說明 | 權限（預設） |
+| 指令 | 說明 | 權限與預設 |
 | --- | --- | --- |
-| `/economy see [玩家] [貨幣]`（相容 `/seemoney`） | 同 `/balance`；不寫玩家看自己，console 需寫玩家 | 自己不限；看別人 `tokaEconomy.see`（OP） |
-| `/economy give <玩家> <金額> [貨幣]`（相容 `/givemoney`） | 給予 | `tokaEconomy.admin`（OP） |
-| `/economy take <玩家> <金額> [貨幣]`（相容 `/takemoney`） | 扣除 | `tokaEconomy.admin` |
-| `/economy set <玩家> <金額> [貨幣]`（相容 `/setmoney`） | 設定餘額（可為 0） | `tokaEconomy.admin` |
+| `/economy see [玩家] [貨幣]`、`/seemoney` | 同 `/balance`；不寫玩家看自己，console 需寫玩家 | 自己不限；看別人 `tokaEconomy.see`，預設 OP |
+| `/economy give <玩家> <金額> [貨幣]`、`/givemoney` | 給予 | `tokaEconomy.admin`，預設 OP |
+| `/economy take <玩家> <金額> [貨幣]`、`/takemoney` | 扣除 | `tokaEconomy.admin` |
+| `/economy set <玩家> <金額> [貨幣]`、`/setmoney` | 設定餘額，可設為 0 | `tokaEconomy.admin` |
 | `/economy ledger [玩家] [頁]` | 查詢交易紀錄，新的在前 | `tokaEconomy.admin` |
 | `/economy rates` | 列出匯率 | `tokaEconomy.admin` |
-| `/economy reload` | 重新讀取 `config.yml`（貨幣、手續費、匯率、清理設定），不需重啟 | `tokaEconomy.admin` |
+| `/economy reload` | 重新讀取貨幣、手續費、匯率與清理設定 | `tokaEconomy.admin` |
 | `/economy vacuum` | 立即在背景清理過期的交易紀錄 | `tokaEconomy.admin` |
-| `/economy legacy list [頁]` | 列出尚未取回的舊名稱帳戶（名稱、餘額、來源） | `tokaEconomy.admin` |
-| `/economy legacy claim <名稱> <玩家>` | 強制把舊帳戶餘額併入該玩家（不論有無餘額），寫交易紀錄 | `tokaEconomy.admin` |
+| `/economy legacy list [頁]` | 列出尚未取回的舊名稱帳戶 | `tokaEconomy.admin` |
+| `/economy legacy claim <名稱> <玩家>` | 把舊帳戶餘額併入指定玩家，並寫入交易紀錄 | `tokaEconomy.admin` |
 | `/economy legacy drop <名稱>` | 刪除一筆舊帳戶，不給任何人 | `tokaEconomy.admin` |
 
 `/bal`、`/money`、`/topmoney`、`/seemoney`、`/givemoney`、`/takemoney`、`/setmoney` 是啟動時另外註冊的名稱；已被其他插件使用的名稱會略過並寫入 log。`/seemoney`、`/givemoney`、`/takemoney`、`/setmoney` 受設定 `compat-commands` 控制。`tokaEconomy.fee.free` 讓擁有者轉帳不收手續費。
 
-## 設定（`config.yml`）
+## 設定 config.yml
 
 | key | 預設 | 說明 |
 | --- | --- | --- |
@@ -88,7 +86,7 @@
 
 手續費只在玩家對玩家的轉帳收取，系統加扣與兌換不收。實際費用 = max(最低額, 金額 × 費率) 無條件捨去，再套用規則折扣。
 
-**手續費規則**（`fee-rules` 清單，每條的條件全部符合才生效）
+**手續費規則 `fee-rules`**：每條規則的條件須全部符合。
 
 | 條件 | 說明 |
 | --- | --- |
@@ -101,28 +99,30 @@
 
 效果擇一：`free: true` 或 `discount: 1–100`。同時符合多條時取最優惠的一條；加 `stack: true` 的規則會與之疊加，總折扣最多 100%。
 
-## 側欄餘額（tokaDisplay）
+## 側欄餘額 tokaDisplay
 
-安裝 tokaDisplay 0.3.0 以上時，每種貨幣會在側欄註冊一個區段（owner 為 `tokaEconomy`，id 為貨幣代碼，預設 `money`、`coin`），內容為「貨幣名稱＋千分位餘額」，只讀記憶體餘額；沒有帳戶時不顯示。區段的排列在 tokaDisplay 的版面設定裡調整。tokaDisplay 是選用相依，沒裝或版本太舊會自動略過。`sidebar.show: false` 可關閉；`/economy reload` 會重新註冊（新增的貨幣也會出現）。文字在 `lang/zh-TW.yml` 的 `ui.sidebar`。
+搭配 tokaDisplay 0.3.0 以上，可在側欄顯示各貨幣餘額。排列由 tokaDisplay 的 `sidebar.layout` 設定，`sidebar.show: false` 可關閉，`/economy reload` 會更新區段。
 
-## 舊名稱帳戶（legacy）
+區段 owner 為 `tokaEconomy`，id 為貨幣代碼，預設 `money`、`coin`。文字範本位於 `lang/zh-TW.yml` 的 `ui.sidebar`。
 
-舊系統的帳戶只有名稱沒有 UUID。其他插件或搬遷程式用 `Economy.importLegacy` 匯入後，存在 `legacy` 文件集合（鍵為小寫名稱，內容：名稱、各貨幣餘額、來源、建立時間），並全部載入記憶體。
+## 舊名稱帳戶 legacy
 
-- **自動取回**：玩家登入時，若有同名（不分大小寫）的舊帳戶，且該 UUID 帳戶不存在或各貨幣餘額皆為 0，餘額併入該帳戶、刪除舊帳戶，並寫交易紀錄（原因 `legacy-claim`）。取回時不再給新帳戶的起始餘額。
+舊帳戶以名稱識別，透過 `Economy.importLegacy` 匯入後保存在 `legacy` 資料集合，供玩家登入取回或由管理員指定。
+
+- **自動取回**：玩家登入時，若有同名舊帳戶，名稱比對不分大小寫，且該 UUID 帳戶不存在或各貨幣餘額皆為 0，餘額併入該帳戶、刪除舊帳戶，並以 `legacy-claim` 寫入交易紀錄。取回時不再給新帳戶的起始餘額。
 - **有爭議就不動**：該帳戶已有餘額，或另一個 UUID 帳戶使用同樣的名稱時，保留舊帳戶並在後台 log 記一筆；管理員用 `/economy legacy claim` 決定。
 - 同名再次匯入會覆蓋；全部取回或刪除後不會再有新資料。登入時只查記憶體，不做磁碟存取。
 
 ## API
 
-靜態入口 `dev.toka.economy.Economy`，在主執行緒呼叫，不做磁碟存取。每個玩家參數都有 `Player` 與 `UUID` 兩種版本（`resolve` 除外）。
+靜態入口 `dev.toka.economy.Economy`，於主執行緒呼叫。餘額操作使用記憶體資料；`resolveAsync` 會在背景查詢玩家檔，並回到主執行緒回呼。餘額、加扣、轉帳與兌換可傳入 `Player` 或 `UUID`；建立帳戶、設定餘額及預覽操作使用 `UUID`。
 
 | 方法 | 說明 |
 | --- | --- |
 | `available()` | 經濟服務是否在運作 |
 | `createAccount(UUID, String name)` | 建立帳戶（已存在則只更新名稱）；玩家登入時自動建立 |
 | `hasAccount(UUID)` | 帳戶是否存在 |
-| `resolve(String name)` | 名稱轉 UUID：線上玩家、tokaProfiles（待接）、已有帳戶者；不讀磁碟 |
+| `resolve(String name)` | 名稱轉 UUID：線上玩家、已有帳戶者；不讀磁碟，tokaProfiles 尚未接入 |
 | `resolveAsync(String name, Consumer<Optional<UUID>>)` | 同上，再加伺服器玩家檔（背景查詢，主執行緒回呼） |
 | `nameOf(UUID)` | 顯示用名稱 |
 | `balance(id, 貨幣)` | 餘額在 `Result.balance()` |
