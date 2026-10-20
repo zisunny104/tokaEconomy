@@ -8,6 +8,9 @@ import cn.nukkit.event.EventHandler;
 import cn.nukkit.event.Listener;
 import cn.nukkit.event.player.PlayerJoinEvent;
 import cn.nukkit.event.plugin.PluginEnableEvent;
+import cn.nukkit.event.plugin.PluginDisableEvent;
+import dev.toka.economy.plan.PlanSettings;
+import dev.toka.economy.plan.PlanExtension;
 import cn.nukkit.plugin.PluginBase;
 import cn.nukkit.scheduler.AsyncTask;
 import cn.nukkit.utils.Config;
@@ -46,6 +49,8 @@ public final class Main extends PluginBase implements Listener {
     private volatile WindowSettings windowSettings;
     private Sidebar sidebar;
     private volatile boolean sidebarShow = true;
+    private PlanSettings planSettings;
+    private AutoCloseable plan;
 
     @Override
     public void onEnable() {
@@ -73,10 +78,12 @@ public final class Main extends PluginBase implements Listener {
         EconomyWindows.register(this);
         sidebar = new Sidebar(() -> service, messages);
         sidebarShow = Sidebar.show(getConfig().getAll());
+        planSettings = PlanSettings.parse(getConfig().getAll());
         Economy.install(service, players);
         getServer().getPluginManager().registerEvents(this, this);
         registerExtraCommands(service.settings().compatCommands());
         refreshSidebar();
+        refreshPlan();
         getServer().getScheduler().scheduleDelayedTask(this, this::refreshSidebar, 40);
         getServer().getScheduler().scheduleDelayedRepeatingTask(this, this::cleanup, 20 * 30, DAY_TICKS);
         getLogger().info(messages.text("log.ready", service.currencies().size(), service.ledgerSize()));
@@ -87,6 +94,7 @@ public final class Main extends PluginBase implements Listener {
 
     @Override
     public void onDisable() {
+        closePlan();
         if (sidebar != null) {
             sidebar.unregister(getServer().getPluginManager().getPlugin(Sidebar.displayName()));
         }
@@ -107,8 +115,35 @@ public final class Main extends PluginBase implements Listener {
 
     @EventHandler
     public void onPluginEnable(PluginEnableEvent event) {
+        if ("Plan".equals(event.getPlugin().getName())) refreshPlan();
         if (Sidebar.displayName().equals(event.getPlugin().getName())) {
             refreshSidebar();
+        }
+    }
+
+    @EventHandler public void onPluginDisable(PluginDisableEvent event) {
+        if ("Plan".equals(event.getPlugin().getName())) closePlan();
+    }
+
+    private void closePlan() {
+        if (plan == null) return;
+        try { plan.close(); }
+        catch (Exception | LinkageError error) { getLogger().warning(messages.text("plan.unavailable", error.getClass().getSimpleName())); }
+        finally { plan = null; }
+    }
+
+    private void refreshPlan() {
+        closePlan();
+        cn.nukkit.plugin.Plugin plugin = getServer().getPluginManager().getPlugin("Plan");
+        if (planSettings == null || !planSettings.enabled() || plugin == null || !plugin.isEnabled()) return;
+        try {
+            PlanExtension extension = new PlanExtension(service, messages, planSettings);
+            if (extension.register()) {
+                plan = extension;
+                getLogger().info(messages.text("plan.ready"));
+            } else getLogger().warning(messages.text("plan.unsupported"));
+        } catch (RuntimeException | LinkageError error) {
+            getLogger().warning(messages.text("plan.unavailable", error.getClass().getSimpleName()));
         }
     }
 
@@ -300,7 +335,7 @@ public final class Main extends PluginBase implements Listener {
                 || key.equals("msg.top.empty") || key.equals("msg.ledger.empty"));
     }
 
-    private record Loaded(Settings settings, WindowSettings windows, boolean sidebar) {
+    private record Loaded(Settings settings, WindowSettings windows, boolean sidebar, PlanSettings plan) {
     }
 
     private void reload(CommandSender sender) {
@@ -310,7 +345,7 @@ public final class Main extends PluginBase implements Listener {
             public void onRun() {
                 try {
                     Map<String, Object> root = new Config(file, Config.YAML).getAll();
-                    setResult(new Loaded(Settings.parse(root), WindowSettings.parse(root), Sidebar.show(root)));
+                    setResult(new Loaded(Settings.parse(root), WindowSettings.parse(root), Sidebar.show(root), PlanSettings.parse(root)));
                 } catch (RuntimeException e) {
                     setResult(e);
                 }
@@ -324,7 +359,9 @@ public final class Main extends PluginBase implements Listener {
                     service.settings(settings);
                     windowSettings = loaded.windows();
                     sidebarShow = loaded.sidebar();
+                    planSettings = loaded.plan();
                     refreshSidebar();
+                    refreshPlan();
                     sender.sendMessage(messages.text("ui.prefix") + messages.text("msg.reload.ok"));
                     getLogger().info(messages.text("log.reloaded", settings.currencies().size()));
                 } else {

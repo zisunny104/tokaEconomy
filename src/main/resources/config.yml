@@ -102,3 +102,12 @@ ledger:
   keep-days: 365
   # 最多保留筆數（超過時刪除最舊的）
   max-rows: 200000
+
+# 選用 Plan DataExtension。餘額屬敏感資訊，預設不公開；逐貨幣設 true 才會輸出。
+# 修改後 /economy reload 生效。關閉只停止後續收集，既有 Plan 資料須在 Plan 管理。
+plan:
+  enabled: false
+  account: true
+  balances:
+    money: false
+    coin: false

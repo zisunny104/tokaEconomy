@@ -278,3 +278,10 @@ status:
     set: "設定"
     api: "其他插件"
     legacy-claim: "舊帳戶併入"
+
+plan:
+  account: '已有經濟帳戶'
+  balance: '${0} 餘額'
+  ready: 'Plan 經濟資訊整合已啟用。'
+  unsupported: 'Plan 缺少 DataExtension Builder API，已略過經濟資訊整合。'
+  unavailable: 'Plan 經濟資訊整合暫時不可用：${0}'

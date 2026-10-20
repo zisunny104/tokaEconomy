@@ -153,3 +153,13 @@ if (!r.ok()) { /* r.status() */ }
 - 0.1.0：初版。多貨幣餘額、API、轉帳手續費與規則、兌換、排行榜、交易紀錄與清理、管理與相容指令。
 
 授權：MIT。
+
+### Plan 選用整合（0.4.0）
+
+`plan.enabled: true` 後向 Plan DataExtension 提供玩家頁面資料；`plan.account` 控制是否顯示帳戶存在，`plan.balances.<貨幣代碼>: true` 才會公開該貨幣餘額。預設停用，餘額逐項預設關閉。Plan 網頁的資料閱覽權限由 Plan 管理，請先確認誰可查看玩家頁面。
+
+使用官方 `com.djrapitops:plan-api:5.7-R0.2` 作 provided 依賴（不打包 Plan），實際檢查 Plan 5.8 build 3638 的 Builder API 相容。執行時檢查 `DATA_EXTENSION_BUILDER_API`；Plan 缺少、停用或不相容不影響經濟功能。支援 Plan 啟用/停用事件，以及 `/economy reload` 重新註冊。Plan 自身停用這個擴充時尊重其設定。
+
+Provider 在 Plan 背景執行緒僅使用執行緒安全的記憶體查詢，產生不可變 `Snapshot`；不讀取世界、玩家物件或資料庫，不建立帳戶、不改餘額。讀取跨幣別期間有交易時可能反映不同瞬間，此展示不作財務結算依據。沒有公開 UUID/名稱對照、舊名資料、交易對象或交易明細。
+
+欄位名稱與整合訊息在 `lang/zh-TW.yml` 的 `plan` 區塊，由 tokaI18n 載入。Plan 使用欄位文字作資料識別，因此調整翻譯或關閉欄位只停止後續收集，Plan 已保存的舊欄位/餘額不會自動刪除，須在 Plan 管理並確認保留政策。
