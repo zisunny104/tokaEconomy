@@ -3,6 +3,8 @@ package dev.toka.economy;
 import cn.nukkit.Player;
 import cn.nukkit.command.Command;
 import cn.nukkit.command.CommandSender;
+import cn.nukkit.command.data.CommandParameter;
+import cn.nukkit.command.data.CommandParamType;
 import cn.nukkit.command.PluginIdentifiableCommand;
 import cn.nukkit.event.EventHandler;
 import cn.nukkit.event.Listener;
@@ -56,6 +58,17 @@ public final class Main extends PluginBase implements Listener {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        suggest("balance",
+                new CommandParameter[]{CommandParameter.newType("玩家", true, CommandParamType.TARGET), CommandParameter.newType("貨幣", true, CommandParamType.STRING)},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"help"})});
+        suggest("pay", new CommandParameter[]{CommandParameter.newType("玩家", CommandParamType.TARGET), CommandParameter.newType("金額", CommandParamType.FLOAT), CommandParameter.newType("貨幣", true, CommandParamType.STRING)});
+        suggest("exchange", new CommandParameter[]{CommandParameter.newType("來源貨幣", CommandParamType.STRING), CommandParameter.newType("目標貨幣", CommandParamType.STRING), CommandParameter.newType("金額", CommandParamType.FLOAT)});
+        suggest("economy",
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"help","top","see","give","take","set","reload","vacuum","ledger","rates","legacy","plan"})},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"legacy"}), CommandParameter.newEnum("交接", new String[]{"list","drop","claim"}), CommandParameter.newType("舊名稱", true, CommandParamType.STRING), CommandParameter.newType("玩家", true, CommandParamType.TARGET)},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"give","take","set"}), CommandParameter.newType("玩家", CommandParamType.TARGET), CommandParameter.newType("金額", CommandParamType.FLOAT), CommandParameter.newType("貨幣", true, CommandParamType.STRING)},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"see","balance"}), CommandParameter.newType("玩家", CommandParamType.TARGET), CommandParameter.newType("貨幣", true, CommandParamType.STRING)},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"plan"}), CommandParameter.newEnum("Plan動作", new String[]{"status","mode","fields"}), CommandParameter.newType("設定", true, CommandParamType.RAWTEXT)});
         messages = new Messages(getClass().getClassLoader(), getDataFolder().toPath(), getConfig().getString("language", "zh-TW"), line -> getLogger().warning(line));
         try {
             Settings settings = Settings.parse(getConfig().getAll());
@@ -91,6 +104,13 @@ public final class Main extends PluginBase implements Listener {
         if (service.legacyCount() > 0) {
             getLogger().info(messages.text("log.legacyPending", service.legacyCount()));
         }
+    }
+
+    private void suggest(String name, CommandParameter[]... forms) {
+        Command registered = (Command) getCommand(name);
+        if (registered == null) return;
+        registered.getCommandParameters().clear();
+        for (int i = 0; i < forms.length; i++) registered.addCommandParameters("choice" + i, forms[i]);
     }
 
     @Override
