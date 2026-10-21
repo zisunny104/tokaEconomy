@@ -123,6 +123,16 @@ public final class Economy {
         return s == null ? Result.fail(Status.UNAVAILABLE) : s.withdraw(id, currency, amount, cause);
     }
 
+    /** Completes after the balance and debit receipt are persisted atomically. Reuse the same operation ID on retry. */
+    public static java.util.concurrent.CompletableFuture<Result> withdrawOnce(UUID id,String currency,long amount,Cause cause,String operationId){
+        EconomyService s=service;return s==null?java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.UNAVAILABLE)):s.withdrawOnce(id,currency,amount,cause,operationId);
+    }
+
+    /** Refunds the exact amount of a debit receipt at most once. No caller-supplied refund amount. */
+    public static java.util.concurrent.CompletableFuture<Result> refundWithdrawalOnce(UUID id,Cause debitCause,String operationId,Cause refundCause){
+        EconomyService s=service;return s==null?java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.UNAVAILABLE)):s.refundWithdrawalOnce(id,debitCause,operationId,refundCause);
+    }
+
     public static Result withdraw(Player player, String currency, long amount, Cause cause) {
         return withdraw(player.getUniqueId(), currency, amount, cause);
     }

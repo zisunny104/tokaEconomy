@@ -1,6 +1,6 @@
 name: tokaEconomy
 main: dev.toka.economy.Main
-version: 0.4.0
+version: "0.4.2"
 api: ["1.0.0"]
 author: zisunny104
 load: STARTUP
@@ -49,4 +49,3 @@ permissions:
   tokaEconomy.fee.free:
     description: 轉帳不收手續費
     default: false
-

@@ -176,3 +176,13 @@ API（主執行緒）：`planStatusJson()`、`configurePlan(String mode, String[
 ### 可重試的獎勵入帳
 
 depositOnce 使用來源、玩家 UUID 與 operation ID 去重；回傳成功前會確認帳戶與收據已寫入儲存。相同 ID 的不同金額或貨幣會拒絕；失敗時以相同 ID 重試，勿產生新 ID。完成回呼可能在背景執行緒，不可直接操作遊戲世界。收據隨帳戶保留；開始使用後不要降版到不支援收據的版本，以免失去去重紀錄。
+
+### 可重試的購地扣款與失敗補償（0.4.2）
+
+`Economy.withdrawOnce(UUID, currency, amount, cause, operationId)` 將扣款與收據一起保存；同一玩家、來源及 operation ID 的重試不會再次扣款。重試必須使用相同金額、貨幣與方向，不能把入帳收據當成扣款收據。舊版沒有 direction 的入帳收據仍可讀取，視為 CREDIT。
+
+`Economy.refundWithdrawalOnce(UUID, debitCause, operationId, refundCause)` 依原扣款收據的金額及貨幣補回，不接受外部指定退款金額。兩個 cause 必須使用相同 source；重試與重啟不會重複補回。這是購地失敗的補償，售地退款仍需另外的交易及計價流程。
+
+兩個 API 的 Future 成功才表示已確認保存；儲存錯誤時結果可能尚未確認，請保留原 operation ID 重試。記憶體餘額可能已變動，不可用即時餘額判斷交易是否完成。回傳收據餘額是該筆操作當時的餘額。回呼可能在背景執行緒，操作世界須回到主執行緒。
+
+Land 與 Economy 不是同一份原子交易。Land 仍須先保存交易 journal、固定購地金額與 operation ID，再扣款、保存領地並記錄完成；失敗則記錄待補償並重試，重啟時恢復。舊價格、折扣與稅務暫由 zero 轉接提供。不可在未確認扣款結果時另建新交易，也不可清除收據或降版後重試。插件 API 的 source 不是身分驗證憑證。

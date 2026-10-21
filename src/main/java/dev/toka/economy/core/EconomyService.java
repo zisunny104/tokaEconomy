@@ -192,6 +192,15 @@ public final class EconomyService {
      * describe the same amount/currency. Completion can be on the writer thread.
      */
     public java.util.concurrent.CompletableFuture<Result> depositOnce(UUID id, String code, long amount, Cause cause, String operationId) {
+        return changeOnce(id,code,amount,cause,operationId,false);
+    }
+
+    /** Durable idempotent debit; retries return the original receipt without charging twice. */
+    public java.util.concurrent.CompletableFuture<Result> withdrawOnce(UUID id,String code,long amount,Cause cause,String operationId){
+        return changeOnce(id,code,amount,cause,operationId,true);
+    }
+
+    private java.util.concurrent.CompletableFuture<Result> changeOnce(UUID id,String code,long amount,Cause cause,String operationId,boolean debit){
         Objects.requireNonNull(id);
         Objects.requireNonNull(cause);
         if (operationId == null || operationId.isBlank() || operationId.length() > 160 || operationId.chars().anyMatch(Character::isISOControl)) {
@@ -211,25 +220,29 @@ public final class EconomyService {
                 if (!receipt.get("operation").getAsString().equals(operationId)
                         || !receipt.get("source").getAsString().equals(cause.source())
                         || !receipt.get("currency").getAsString().equals(currency.code())
-                        || receipt.get("amount").getAsLong() != amount) {
+                        || receipt.get("amount").getAsLong() != amount
+                        || !(receipt.has("direction")?receipt.get("direction").getAsString():"CREDIT").equals(debit?"DEBIT":"CREDIT")) {
                     return java.util.concurrent.CompletableFuture.failedFuture(new IllegalArgumentException("Operation ID reused with different payment"));
                 }
                 if (attempt == null) return java.util.concurrent.CompletableFuture.completedFuture(receiptResult(receipt));
                 if (attempt.future != null && !attempt.future.isDone()) return attempt.future.copy();
             } else {
                 long balance = account.balance(currency.code());
-                if (balance > Long.MAX_VALUE - amount) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.OVERFLOW));
+                if (debit&&balance<amount) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.INSUFFICIENT_FUNDS));
+                if (!debit&&balance > Long.MAX_VALUE - amount) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.OVERFLOW));
+                long after=debit?balance-amount:balance+amount;
                 receipt = new JsonObject();
                 receipt.addProperty("operation", operationId);
                 receipt.addProperty("source", cause.source());
                 receipt.addProperty("currency", currency.code());
                 receipt.addProperty("amount", amount);
-                receipt.addProperty("balance", balance + amount);
+                receipt.addProperty("direction",debit?"DEBIT":"CREDIT");
+                receipt.addProperty("balance", after);
                 receipt.addProperty("time", clock.millis());
-                account.balances.put(currency.code(), balance + amount);
+                account.balances.put(currency.code(), after);
                 account.receipts.put(key, receipt);
                 Map<String, JsonObject> ledger = new LinkedHashMap<>();
-                log(ledger, currency.code(), null, id, amount, cause);
+                log(ledger, currency.code(), debit?id:null, debit?null:id, amount, cause);
                 attempt = new PaymentAttempt(ledger);
                 paymentAttempts.put(pendingKey, attempt);
             }
@@ -253,6 +266,23 @@ public final class EconomyService {
             });
             return answer.copy();
         }
+    }
+
+    /** Refund exactly one matching debit; the amount/currency are read from its receipt, not caller input. */
+    public java.util.concurrent.CompletableFuture<Result> refundWithdrawalOnce(UUID id,Cause debitCause,String operationId,Cause refundCause){
+        Objects.requireNonNull(id);Objects.requireNonNull(debitCause);Objects.requireNonNull(refundCause);
+        if(!debitCause.source().equals(refundCause.source()))return java.util.concurrent.CompletableFuture.failedFuture(new IllegalArgumentException("Refund source must match debit source"));
+        final JsonObject receipt;
+        synchronized(lock){var account=accounts.get(id);if(account==null)return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.NO_ACCOUNT));
+            var saved=account.receipts.get(receiptKey(debitCause.source(),operationId));
+            if(saved==null||!saved.has("direction")||!saved.get("direction").getAsString().equals("DEBIT"))return java.util.concurrent.CompletableFuture.failedFuture(new IllegalArgumentException("No matching withdrawal receipt"));
+            receipt=saved.deepCopy();
+        }
+        String currency=receipt.get("currency").getAsString();long amount=receipt.get("amount").getAsLong();
+        // Confirm an earlier ambiguous debit before creating a separate durable compensation receipt.
+        return withdrawOnce(id,currency,amount,debitCause,operationId).thenCompose(result->result.ok()
+                ?depositOnce(id,currency,amount,refundCause,"refund:"+receiptKey(debitCause.source(),operationId))
+                :java.util.concurrent.CompletableFuture.completedFuture(result));
     }
 
     private static Result receiptResult(JsonObject receipt) {
