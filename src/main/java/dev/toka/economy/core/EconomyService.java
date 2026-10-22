@@ -287,7 +287,8 @@ public final class EconomyService {
 
     /**
      * Moves money between two accounts in one durable write, at most once per source and operation ID. No fee is charged:
-     * this is for plugins settling their own books (a treasury, a refund). Both accounts get a matching receipt.
+     * this is for plugins settling their own books (a treasury, a refund). Only the paying account keeps the receipt, so an
+     * account that receives many payments (a treasury) does not grow with every one.
      */
     public java.util.concurrent.CompletableFuture<Result> transferOnce(UUID from, UUID to, String code, long amount, Cause cause, String operationId) {
         Objects.requireNonNull(from);
@@ -325,11 +326,10 @@ public final class EconomyService {
                 if (paid < amount) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.INSUFFICIENT_FUNDS));
                 if (held > Long.MAX_VALUE - amount) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.OVERFLOW));
                 long now = clock.millis();
-                receipt = transferReceipt(operationId, cause, currency, amount, "DEBIT", to, paid - amount, now);
+                receipt = transferReceipt(operationId, cause, currency, amount, to, paid - amount, now);
                 source.balances.put(currency.code(), paid - amount);
                 target.balances.put(currency.code(), held + amount);
                 source.receipts.put(key, receipt);
-                target.receipts.put(key, transferReceipt(operationId, cause, currency, amount, "CREDIT", from, held + amount, now));
                 Map<String, JsonObject> ledgerRows = new LinkedHashMap<>();
                 log(ledgerRows, currency.code(), from, to, amount, cause);
                 attempt = new PaymentAttempt(ledgerRows);
@@ -357,13 +357,13 @@ public final class EconomyService {
         }
     }
 
-    private static JsonObject transferReceipt(String operationId, Cause cause, Currency currency, long amount, String direction, UUID counterparty, long balance, long time) {
+    private static JsonObject transferReceipt(String operationId, Cause cause, Currency currency, long amount, UUID counterparty, long balance, long time) {
         JsonObject receipt = new JsonObject();
         receipt.addProperty("operation", operationId);
         receipt.addProperty("source", cause.source());
         receipt.addProperty("currency", currency.code());
         receipt.addProperty("amount", amount);
-        receipt.addProperty("direction", direction);
+        receipt.addProperty("direction", "DEBIT");
         receipt.addProperty("counterparty", counterparty.toString());
         receipt.addProperty("balance", balance);
         receipt.addProperty("time", time);

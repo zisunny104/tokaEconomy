@@ -106,4 +106,13 @@ public class DurableTransferTest {
         economy.createAccount(a, "A");
         assertTrue(economy.transferOnce(a, a, "money", 1, PAY, "op-7").isCompletedExceptionally());
     }
+
+    @Test public void onlyThePayingAccountKeepsAReceipt() throws Exception {
+        Store store = new Store();
+        UUID a = UUID.randomUUID(), b = UUID.randomUUID();
+        var economy = withAccounts(store, a, b, 100);
+        economy.transferOnce(a, b, "money", 10, PAY, "op-8").join();
+        assertEquals(1, store.docs.get(Codec.accountKey(a)).getAsJsonObject("receipts").size());
+        assertEquals(0, store.docs.get(Codec.accountKey(b)).getAsJsonObject("receipts").size());
+    }
 }
