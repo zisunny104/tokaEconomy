@@ -285,6 +285,91 @@ public final class EconomyService {
                 :java.util.concurrent.CompletableFuture.completedFuture(result));
     }
 
+    /**
+     * Moves money between two accounts in one durable write, at most once per source and operation ID. No fee is charged:
+     * this is for plugins settling their own books (a treasury, a refund). Both accounts get a matching receipt.
+     */
+    public java.util.concurrent.CompletableFuture<Result> transferOnce(UUID from, UUID to, String code, long amount, Cause cause, String operationId) {
+        Objects.requireNonNull(from);
+        Objects.requireNonNull(to);
+        Objects.requireNonNull(cause);
+        if (from.equals(to)) return java.util.concurrent.CompletableFuture.failedFuture(new IllegalArgumentException("Cannot transfer to the same account"));
+        if (operationId == null || operationId.isBlank() || operationId.length() > 160 || operationId.chars().anyMatch(Character::isISOControl)) {
+            return java.util.concurrent.CompletableFuture.failedFuture(new IllegalArgumentException("Invalid operation ID"));
+        }
+        Currency currency = currency(code);
+        if (currency == null) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.UNKNOWN_CURRENCY));
+        if (amount <= 0) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.INVALID_AMOUNT));
+        String key = receiptKey(cause.source(), operationId);
+        String pendingKey = from + ":" + key;
+        synchronized (lock) {
+            Account source = accounts.get(from);
+            Account target = accounts.get(to);
+            if (source == null || target == null) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.NO_ACCOUNT));
+            JsonObject receipt = source.receipts.get(key);
+            PaymentAttempt attempt = paymentAttempts.get(pendingKey);
+            if (receipt != null) {
+                if (!receipt.get("operation").getAsString().equals(operationId)
+                        || !receipt.get("source").getAsString().equals(cause.source())
+                        || !receipt.get("currency").getAsString().equals(currency.code())
+                        || receipt.get("amount").getAsLong() != amount
+                        || !"DEBIT".equals(receipt.has("direction") ? receipt.get("direction").getAsString() : "")
+                        || !receipt.has("counterparty") || !receipt.get("counterparty").getAsString().equals(to.toString())) {
+                    return java.util.concurrent.CompletableFuture.failedFuture(new IllegalArgumentException("Operation ID reused with different payment"));
+                }
+                if (attempt == null) return java.util.concurrent.CompletableFuture.completedFuture(receiptResult(receipt));
+                if (attempt.future != null && !attempt.future.isDone()) return attempt.future.copy();
+            } else {
+                long paid = source.balance(currency.code());
+                long held = target.balance(currency.code());
+                if (paid < amount) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.INSUFFICIENT_FUNDS));
+                if (held > Long.MAX_VALUE - amount) return java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.OVERFLOW));
+                long now = clock.millis();
+                receipt = transferReceipt(operationId, cause, currency, amount, "DEBIT", to, paid - amount, now);
+                source.balances.put(currency.code(), paid - amount);
+                target.balances.put(currency.code(), held + amount);
+                source.receipts.put(key, receipt);
+                target.receipts.put(key, transferReceipt(operationId, cause, currency, amount, "CREDIT", from, held + amount, now));
+                Map<String, JsonObject> ledgerRows = new LinkedHashMap<>();
+                log(ledgerRows, currency.code(), from, to, amount, cause);
+                attempt = new PaymentAttempt(ledgerRows);
+                paymentAttempts.put(pendingKey, attempt);
+            }
+            // Both accounts and the ledger row go in one write, so the two sides can never be saved apart.
+            Map<String, JsonObject> batch = new LinkedHashMap<>(attempt.ledger);
+            batch.put(Codec.accountKey(from), Codec.encode(source));
+            batch.put(Codec.accountKey(to), Codec.encode(target));
+            java.util.concurrent.CompletableFuture<Result> answer = new java.util.concurrent.CompletableFuture<>();
+            attempt.future = answer;
+            Result result = receiptResult(receipt);
+            java.util.concurrent.CompletableFuture<Void> saved;
+            try { saved = persist.saveConfirmed(batch); }
+            catch (RuntimeException error) { answer.completeExceptionally(error); return answer.copy(); }
+            saved.whenComplete((ignored, error) -> {
+                if (error != null) {
+                    answer.completeExceptionally(error);
+                } else {
+                    synchronized (lock) { paymentAttempts.remove(pendingKey); }
+                    answer.complete(result);
+                }
+            });
+            return answer.copy();
+        }
+    }
+
+    private static JsonObject transferReceipt(String operationId, Cause cause, Currency currency, long amount, String direction, UUID counterparty, long balance, long time) {
+        JsonObject receipt = new JsonObject();
+        receipt.addProperty("operation", operationId);
+        receipt.addProperty("source", cause.source());
+        receipt.addProperty("currency", currency.code());
+        receipt.addProperty("amount", amount);
+        receipt.addProperty("direction", direction);
+        receipt.addProperty("counterparty", counterparty.toString());
+        receipt.addProperty("balance", balance);
+        receipt.addProperty("time", time);
+        return receipt;
+    }
+
     private static Result receiptResult(JsonObject receipt) {
         return new Result(Status.OK, receipt.get("amount").getAsLong(), 0, receipt.get("balance").getAsLong(), 0);
     }

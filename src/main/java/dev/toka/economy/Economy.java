@@ -133,6 +133,16 @@ public final class Economy {
         EconomyService s=service;return s==null?java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.UNAVAILABLE)):s.refundWithdrawalOnce(id,debitCause,operationId,refundCause);
     }
 
+    /**
+     * Moves money from one account to another in a single durable write, at most once per source and operation ID, with no
+     * fee. Reuse the same operation ID on retry. Both accounts must exist.
+     */
+    public static java.util.concurrent.CompletableFuture<Result> transferOnce(UUID from, UUID to, String currency, long amount, Cause cause, String operationId) {
+        EconomyService s = service;
+        return s == null ? java.util.concurrent.CompletableFuture.completedFuture(Result.fail(Status.UNAVAILABLE))
+                : s.transferOnce(from, to, currency, amount, cause, operationId);
+    }
+
     public static Result withdraw(Player player, String currency, long amount, Cause cause) {
         return withdraw(player.getUniqueId(), currency, amount, cause);
     }
