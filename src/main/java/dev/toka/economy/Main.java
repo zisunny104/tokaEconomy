@@ -3,6 +3,7 @@ package dev.toka.economy;
 import cn.nukkit.Player;
 import cn.nukkit.command.Command;
 import cn.nukkit.command.CommandSender;
+import cn.nukkit.command.data.CommandEnum;
 import cn.nukkit.command.data.CommandParameter;
 import cn.nukkit.command.data.CommandParamType;
 import cn.nukkit.command.PluginIdentifiableCommand;
@@ -24,6 +25,7 @@ import dev.toka.economy.core.EconomyService;
 import dev.toka.economy.core.Reasons;
 import dev.toka.economy.core.Settings;
 import dev.toka.economy.storage.DocPersist;
+import dev.toka.economy.window.AdminWindows;
 import dev.toka.economy.window.EconomyWindows;
 import dev.toka.economy.window.WindowSettings;
 import dev.toka.i18n.Messages;
@@ -53,23 +55,15 @@ public final class Main extends PluginBase implements Listener {
     private Sidebar sidebar;
     private volatile boolean sidebarShow = true;
     private PlanSettings planSettings;
+    /** Commands put into the CommandMap by hand: Nukkit does not remove them, so a reload would leave them pointing at the old plugin. */
+    private final List<Command> extras = new java.util.ArrayList<>();
+    private AdminWindows adminWindows;
     private AutoCloseable plan;
     private dev.toka.economy.plan.PlanControl planControl;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        suggest("balance",
-                new CommandParameter[]{CommandParameter.newType("玩家", true, CommandParamType.TARGET), CommandParameter.newType("貨幣", true, CommandParamType.STRING)},
-                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"help"})});
-        suggest("pay", new CommandParameter[]{CommandParameter.newType("玩家", CommandParamType.TARGET), CommandParameter.newType("金額", CommandParamType.FLOAT), CommandParameter.newType("貨幣", true, CommandParamType.STRING)});
-        suggest("exchange", new CommandParameter[]{CommandParameter.newType("來源貨幣", CommandParamType.STRING), CommandParameter.newType("目標貨幣", CommandParamType.STRING), CommandParameter.newType("金額", CommandParamType.FLOAT)});
-        suggest("economy",
-                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"help","top","see","give","take","set","reload","vacuum","ledger","rates","legacy","plan"})},
-                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"legacy"}), CommandParameter.newEnum("交接", new String[]{"list","drop","claim"}), CommandParameter.newType("舊名稱", true, CommandParamType.STRING), CommandParameter.newType("玩家", true, CommandParamType.TARGET)},
-                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"give","take","set"}), CommandParameter.newType("玩家", CommandParamType.TARGET), CommandParameter.newType("金額", CommandParamType.FLOAT), CommandParameter.newType("貨幣", true, CommandParamType.STRING)},
-                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"see","balance"}), CommandParameter.newType("玩家", CommandParamType.TARGET), CommandParameter.newType("貨幣", true, CommandParamType.STRING)},
-                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"plan"}), CommandParameter.newEnum("Plan動作", new String[]{"status","mode","fields"}), CommandParameter.newType("設定", true, CommandParamType.RAWTEXT)});
         messages = new Messages(getClass().getClassLoader(), getDataFolder().toPath(), getConfig().getString("language", "zh-TW"), line -> getLogger().warning(line));
         try {
             Settings settings = Settings.parse(getConfig().getAll());
@@ -89,11 +83,13 @@ public final class Main extends PluginBase implements Listener {
         players = new Players(this, service);
         logic = new CommandLogic(service, players, messages);
         windowSettings = WindowSettings.parse(getConfig().getAll());
-        windows = new EconomyWindows(service, logic, messages, () -> windowSettings, this::send);
+        windows = new EconomyWindows(service, logic, messages, () -> windowSettings, this::send, players);
+        adminWindows = new AdminWindows(service, logic, messages, () -> windowSettings, this::send, players, this::reload);
         EconomyWindows.register(this);
         sidebar = new Sidebar(() -> service, messages);
         sidebarShow = Sidebar.show(getConfig().getAll());
         planSettings = PlanSettings.parse(getConfig().getAll());
+        refreshSuggestions();
         Economy.install(service, players);
         getServer().getPluginManager().registerEvents(this, this);
         registerExtraCommands(service.settings().compatCommands());
@@ -108,6 +104,42 @@ public final class Main extends PluginBase implements Listener {
         }
     }
 
+    private static final String[] PLAN_MODES = {"auto", "enable", "disable"};
+
+    /** Bedrock tab-completion for every command; rebuilt when the currencies change (reload). */
+    private void refreshSuggestions() {
+        String[] codes = service.currencies().toArray(new String[0]);
+        java.util.List<String> fieldList = new java.util.ArrayList<>(List.of("all", "none", "account"));
+        service.currencies().forEach(code -> fieldList.add("balance." + code));
+        String[] fields = fieldList.toArray(new String[0]);
+        CommandParameter page = CommandParameter.newType("頁", true, CommandParamType.INT);
+        CommandParameter player = CommandParameter.newType("玩家", CommandParamType.TARGET);
+        CommandParameter amount = CommandParameter.newType("金額", CommandParamType.INT);
+        suggest("balance",
+                new CommandParameter[]{CommandParameter.newType("玩家", true, CommandParamType.TARGET), CommandParameter.newEnum("貨幣", true, new CommandEnum("economyCurrency", codes))},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"help"})});
+        suggest("pay",
+                new CommandParameter[]{player, amount, CommandParameter.newEnum("貨幣", true, new CommandEnum("economyCurrency", codes))},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"help"})});
+        suggest("exchange",
+                new CommandParameter[]{CommandParameter.newEnum("來源貨幣", new CommandEnum("economyFrom", codes)), CommandParameter.newEnum("目標貨幣", new CommandEnum("economyTo", codes)), amount},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"help"})});
+        suggest("economy",
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"reload", "vacuum", "rates", "menu"})},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"help"}), CommandParameter.newType("頁", true, CommandParamType.STRING)},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"top"}), CommandParameter.newEnum("貨幣", true, new CommandEnum("economyCurrency", codes)), page},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"ledger"}), CommandParameter.newType("玩家", true, CommandParamType.TARGET), page},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"see"}), CommandParameter.newType("玩家", true, CommandParamType.TARGET), CommandParameter.newEnum("貨幣", true, new CommandEnum("economyCurrency", codes))},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"give", "take", "set"}), player, amount, CommandParameter.newEnum("貨幣", true, new CommandEnum("economyCurrency", codes))},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"legacy"}), CommandParameter.newEnum("交接", new String[]{"list"}), page},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"legacy"}), CommandParameter.newEnum("交接", new String[]{"claim"}), CommandParameter.newType("舊名稱", CommandParamType.STRING), player},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"legacy"}), CommandParameter.newEnum("交接", new String[]{"drop"}), CommandParameter.newType("舊名稱", CommandParamType.STRING)},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"plan"}), CommandParameter.newEnum("Plan動作", new String[]{"status"})},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"plan"}), CommandParameter.newEnum("Plan動作", new String[]{"mode"}), CommandParameter.newEnum("模式", PLAN_MODES)},
+                new CommandParameter[]{CommandParameter.newEnum("動作", new String[]{"plan"}), CommandParameter.newEnum("Plan動作", new String[]{"fields"}), CommandParameter.newEnum("欄位", new CommandEnum("economyPlanFields", fields))});
+        getServer().getOnlinePlayers().values().forEach(Player::sendCommandData);
+    }
+
     private void suggest(String name, CommandParameter[]... forms) {
         Command registered = (Command) getCommand(name);
         if (registered == null) return;
@@ -117,6 +149,7 @@ public final class Main extends PluginBase implements Listener {
 
     @Override
     public void onDisable() {
+        unregisterExtraCommands();
         closePlan();
         if (sidebar != null) {
             sidebar.unregister(getServer().getPluginManager().getPlugin(Sidebar.displayName()));
@@ -202,7 +235,7 @@ public final class Main extends PluginBase implements Listener {
                 listeningLegacy = true;
             }
         } catch (ReflectiveOperationException | LinkageError unavailable) {
-            getLogger().warning("無法連上 tokaProfiles 的舊名稱取回：" + unavailable.getClass().getSimpleName());
+            getLogger().warning(messages.text("log.profilesUnavailable", unavailable.getClass().getSimpleName()));
         }
     }
 
@@ -283,7 +316,15 @@ public final class Main extends PluginBase implements Listener {
             getLogger().warning(messages.text("log.commandSkipped", name, who));
             return;
         }
-        getServer().getCommandMap().register("tokaeconomy", new Extra(name, action, permission), name);
+        Extra command = new Extra(name, action, permission);
+        getServer().getCommandMap().register("tokaeconomy", command, name);
+        extras.add(command);
+    }
+
+    private void unregisterExtraCommands() {
+        if (extras.isEmpty()) return;
+        getServer().getCommandMap().getCommands().values().removeIf(extras::contains);
+        extras.clear();
     }
 
     @Override
@@ -311,7 +352,7 @@ public final class Main extends PluginBase implements Listener {
         String sub = args[0].toLowerCase(java.util.Locale.ROOT);
         String[] rest = Arrays.copyOfRange(args, 1, args.length);
         switch (sub) {
-            case "top", "see", "give", "take", "set", "reload", "vacuum", "ledger", "rates", "legacy" -> run(sender, sub, rest);
+            case "top", "see", "give", "take", "set", "reload", "vacuum", "ledger", "rates", "legacy", "menu" -> run(sender, sub, rest);
             default -> send(sender, List.of(Line.of("err.usage", messages.text("cmd.economy.usage"))));
         }
     }
@@ -324,7 +365,7 @@ public final class Main extends PluginBase implements Listener {
         }
         boolean admin = sender.hasPermission(PERM_ADMIN);
         boolean adminOnly = switch (action) {
-            case "give", "take", "set", "reload", "vacuum", "ledger", "rates", "legacy" -> true;
+            case "give", "take", "set", "reload", "vacuum", "ledger", "rates", "legacy", "menu" -> true;
             default -> false;
         };
         if (adminOnly && !admin) {
@@ -349,6 +390,10 @@ public final class Main extends PluginBase implements Listener {
             case "ledger" -> logic.ledger(args, out);
             case "rates" -> out.accept(logic.rates());
             case "legacy" -> logic.legacy(caller, args, out);
+            case "menu" -> {
+                if (sender instanceof Player player) adminWindows.open(player);
+                else out.accept(List.of(Line.of("err.playerOnly")));
+            }
             case "top" -> out.accept(logic.top(args));
             case "reload" -> reload(sender);
             case "vacuum" -> vacuum(sender);
@@ -418,6 +463,11 @@ public final class Main extends PluginBase implements Listener {
                     service.settings(settings);
                     windowSettings = loaded.windows();
                     sidebarShow = loaded.sidebar();
+                    messages.language(settings.language());
+                    messages.reload();
+                    unregisterExtraCommands();
+                    registerExtraCommands(settings.compatCommands());
+                    refreshSuggestions();
                     planSettings = loaded.plan();
                     refreshSidebar();
                     refreshPlan();

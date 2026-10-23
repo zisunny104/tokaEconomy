@@ -9,6 +9,7 @@ import cn.nukkit.form.window.FormWindowCustom;
 import dev.toka.economy.command.Caller;
 import dev.toka.economy.command.CommandLogic;
 import dev.toka.economy.command.Line;
+import dev.toka.economy.command.Names;
 import dev.toka.economy.core.EconomyService;
 import dev.toka.economy.form.Confirm;
 import dev.toka.economy.form.Custom;
@@ -43,18 +44,20 @@ public final class EconomyWindows {
     private final Messages messages;
     private final Supplier<WindowSettings> settings;
     private final BiConsumer<Player, List<Line>> sender;
+    private final Names names;
 
     /**
      * @param sender sends the lines of a result to the player (and to anyone a line is addressed to)
      */
     public EconomyWindows(EconomyService service, CommandLogic logic, Messages messages, Supplier<WindowSettings> settings,
-                          BiConsumer<Player, List<Line>> sender) {
+                          BiConsumer<Player, List<Line>> sender, Names names) {
         this.service = service;
         this.logic = logic;
         this.windows = new WindowLogic(service, logic);
         this.messages = messages;
         this.settings = settings;
         this.sender = sender;
+        this.names = names;
     }
 
     /** Register once in onEnable: the answers of the windows. */
@@ -143,6 +146,7 @@ public final class EconomyWindows {
 
     private void pickPlayer(Player player) {
         List<ListMenu.Item> items = new ArrayList<>();
+        items.add(new ListMenu.Item(t("ui.transfer.offline.item"), icon(ICON_PLAYER), this::offlineForm));
         for (Player other : player.getServer().getOnlinePlayers().values()) {
             if (other != player && other.isOnline()) {
                 UUID id = other.getUniqueId();
@@ -151,6 +155,35 @@ public final class EconomyWindows {
             }
         }
         list("players", texts(), t("ui.transfer.players.title"), t("ui.transfer.players.hint"), t("ui.transfer.players.empty"), items, this::open).show(player);
+    }
+
+    /** The name of a player who is not online; the account is made when needed. */
+    private void offlineForm(Player player) {
+        offlineForm(player, null, "");
+    }
+
+    private void offlineForm(Player player, Line error, String typed) {
+        FormWindowCustom form = new FormWindowCustom(t("ui.transfer.offline.title"));
+        form.addElement(new ElementLabel(error == null ? t("ui.transfer.offline.label") : text(error)));
+        form.addElement(new ElementInput(t("ui.transfer.offline.name"), t("ui.transfer.offline.nameHint"), typed));
+        Custom.show(player, form, response -> {
+            String name = response.getInputResponse(1) == null ? "" : response.getInputResponse(1).strip();
+            if (name.isEmpty()) {
+                offlineForm(player, Line.of("err.player.notFound", name), name);
+                return;
+            }
+            names.resolve(name, found -> {
+                if (found.isEmpty() || found.get().equals(player.getUniqueId())) {
+                    offlineForm(player, found.isEmpty() ? Line.of("err.player.notFound", name) : Line.of("err.self"), name);
+                    return;
+                }
+                UUID id = found.get();
+                if (!service.hasAccount(id)) {
+                    service.createAccount(id, name);
+                }
+                transferForm(player, id, names.display(id), null, "", 0);
+            });
+        }, this::pickPlayer);
     }
 
     /** The amount (and currency) form; {@code error} explains why the last try came back. Closing it cancels. */

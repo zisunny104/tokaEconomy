@@ -17,7 +17,7 @@ cmd:
   exchange:
     usage: "/exchange <來源貨幣> <目標貨幣> <金額>"
   economy:
-    usage: "/economy <top|see|give|take|set|reload|vacuum|ledger|rates|legacy|help>"
+    usage: "/economy <top|see|give|take|set|reload|vacuum|ledger|rates|legacy|menu|plan|help>"
     legacy:
       usage: "/economy legacy <list [頁]|claim <名稱> <玩家>|drop <名稱>>"
     give:
@@ -62,6 +62,10 @@ help:
     - "§e/economy legacy list [頁] §7- §b列出尚未取回的舊名稱帳戶"
     - "§e/economy legacy claim <名稱> <玩家> §7- §b強制把舊帳戶餘額併入玩家帳戶（會寫交易紀錄）"
     - "§e/economy legacy drop <名稱> §7- §b刪除一筆舊帳戶，不給任何人"
+    - "§e/economy menu §7- §b開啟管理視窗（給予、扣除、設定、查看、紀錄、匯率、重載）"
+    - "§e/economy plan status §7- §b查看 Plan 展示設定"
+    - "§e/economy plan mode <auto|enable|disable> §7- §b設定 Plan 展示模式"
+    - "§e/economy plan fields <all|none|欄位...> §7- §b設定要展示的欄位（account、balance.<貨幣>）"
     - "§e/economy help [頁|all] §7- §b顯示此說明，all 一次全列"
 
 # ───────────────────────── 訊息（msg） ─────────────────────────
@@ -197,6 +201,12 @@ ui:
 §b實付合計：§a${3}
 §b轉帳後餘額：§a${4}"
       accept: "§a確認轉帳"
+    offline:
+      item: "§e輸入離線玩家名稱"
+      title: "=離線玩家="
+      label: "§b輸入對方的玩家名稱"
+      name: "玩家名稱"
+      nameHint: "例如 Steve"
   exchange:
     pairs:
       title: "=兌換貨幣="
@@ -246,6 +256,54 @@ ui:
     out: "§7${0} §b${1} §c-${2} §7→ ${3}"
     in: "§7${0} §b${1} §a+${2} §7← ${3}"
 
+  admin:
+    title: "=經濟管理="
+    prompt: "§b請選擇要做的事"
+    button:
+      adjust: "§l§b調整餘額"
+      see: "§l§b查看餘額"
+      ledger: "§l§b玩家交易紀錄"
+      rates: "§l§b匯率"
+      reload: "§l§b重新載入設定"
+    kind:
+      give: "給予"
+      take: "扣除"
+      set: "設定為"
+    pick:
+      title: "=選擇玩家="
+      hint: "§b搜尋可縮小線上名單；離線玩家請直接輸入名稱"
+      search: "搜尋線上玩家"
+      searchHint: "名稱的一部分"
+      online: "線上玩家"
+      none: "（不選）"
+      offline: "離線玩家名稱"
+      offlineHint: "有填寫時優先使用"
+      missing: "§c請選擇或輸入一位玩家"
+    adjust:
+      # ${0}=玩家
+      title: "=調整 ${0}="
+      label: "§b對象：§a${0}"
+      action: "動作"
+      currency: "貨幣"
+      amount: "金額（整數）"
+      amountHint: "例如 1000"
+    confirm:
+      title: "=確認調整="
+      # ${0}=動作 ${1}=玩家 ${2}=金額
+      content: "§b動作：§a${0}
+§b對象：§a${1}
+§b金額：§a${2}"
+      accept: "§a確認"
+    ledger:
+      # ${0}=玩家
+      title: "=${0} 的交易紀錄="
+    rates:
+      title: "=匯率="
+    reload:
+      title: "=重新載入="
+      content: "§b要重新讀取 config.yml 與語系檔嗎？"
+      accept: "§a重新載入"
+
 # ───────────────────────── 後台 log（log） ─────────────────────────
 log:
   ready: "§b經濟服務已啟動：§a${0} §b種貨幣，§a${1} §b筆交易紀錄"
@@ -257,8 +315,9 @@ log:
   legacyPending: "§b尚有 §a${0} §b筆舊名稱帳戶待同名玩家登入取回"
   # ${0}=舊帳戶名稱 ${1}=玩家 ${2}=各貨幣餘額
   legacyClaimed: "§b舊帳戶 §a${0} §b已併入 §a${1}§b：${2}"
-  legacyHeldBalance: "§e舊帳戶 ${0} 不自動併入 ${1}：該玩家的帳戶已有餘額，可用 /economy legacy claim 處理"
-  legacyHeldConflict: "§e舊帳戶 ${0} 不自動併入 ${1}：另有帳戶使用同樣的名稱，可用 /economy legacy claim 處理"
+  legacyHeldBalance: "§e舊帳戶 §a${0} §e未併入 §a${1}§e：已有餘額"
+  legacyHeldConflict: "§e舊帳戶 §a${0} §e未併入 §a${1}§e：名稱衝突"
+  profilesUnavailable: "§e無法連上 tokaProfiles：§a${0}"
   drainTimeout: "§e關閉時等待寫入逾時（10 秒），部分變更可能未存檔"
   reloaded: "§b已重新載入設定：§a${0} §b種貨幣"
   commandSkipped: "§e指令 /${0} 已由 ${1} 使用，略過註冊"
