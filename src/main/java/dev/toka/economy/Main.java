@@ -21,6 +21,7 @@ import dev.toka.economy.command.CommandLogic;
 import dev.toka.economy.command.Help;
 import dev.toka.economy.command.Line;
 import dev.toka.economy.core.EconomyService;
+import dev.toka.economy.core.Reasons;
 import dev.toka.economy.core.Settings;
 import dev.toka.economy.storage.DocPersist;
 import dev.toka.economy.window.EconomyWindows;
@@ -98,6 +99,7 @@ public final class Main extends PluginBase implements Listener {
         registerExtraCommands(service.settings().compatCommands());
         refreshSidebar();
         refreshPlan();
+        getServer().getScheduler().scheduleTask(this, this::connectLegacy);
         getServer().getScheduler().scheduleDelayedTask(this, this::refreshSidebar, 40);
         getServer().getScheduler().scheduleDelayedRepeatingTask(this, this::cleanup, 20 * 30, DAY_TICKS);
         getLogger().info(messages.text("log.ready", service.currencies().size(), service.ledgerSize()));
@@ -183,21 +185,51 @@ public final class Main extends PluginBase implements Listener {
         }
     }
 
+    private boolean listeningLegacy;
+
+    /** The profile service decides who an old name is; the balances of an old account move only when it says so. */
+    private void connectLegacy() {
+        cn.nukkit.plugin.Plugin profiles = getServer().getPluginManager().getPlugin("tokaProfiles");
+        if (profiles == null || !profiles.isEnabled()) {
+            return;
+        }
+        try {
+            @SuppressWarnings("unchecked") Map<String, UUID> resolved = (Map<String, UUID>) profiles.getClass().getMethod("legacyResolved").invoke(null);
+            resolved.forEach(this::takeLegacy);
+            if (!listeningLegacy) {
+                profiles.getClass().getMethod("onLegacyResolved", java.util.function.BiConsumer.class).invoke(null,
+                        (java.util.function.BiConsumer<String, UUID>) (name, uuid) -> getServer().getScheduler().scheduleTask(this, () -> takeLegacy(name, uuid)));
+                listeningLegacy = true;
+            }
+        } catch (ReflectiveOperationException | LinkageError unavailable) {
+            getLogger().warning("無法連上 tokaProfiles 的舊名稱取回：" + unavailable.getClass().getSimpleName());
+        }
+    }
+
+    private void takeLegacy(String name, UUID uuid) {
+        Player online = getServer().getOnlinePlayers().get(uuid);
+        EconomyService.Claim claim = service.claimLegacy(name, uuid, online == null ? name : online.getName(), new Cause(Reasons.LEGACY_CLAIM, "tokaEconomy"));
+        if (claim.status() == Status.OK) {
+            String summary = logic.legacySummary(claim.legacy());
+            getLogger().info(messages.text("log.legacyClaimed", name, online == null ? name : online.getName(), summary));
+            if (online != null) {
+                send(online, List.of(Line.of("msg.legacy.joined", summary)));
+            }
+        }
+    }
+
+    @EventHandler
+    public void onProfilesEnabled(cn.nukkit.event.plugin.PluginEnableEvent event) {
+        if (event.getPlugin().getName().equals("tokaProfiles")) {
+            listeningLegacy = false;
+            getServer().getScheduler().scheduleTask(this, this::connectLegacy);
+        }
+    }
+
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        EconomyService.Join join = service.join(player.getUniqueId(), player.getName());
-        switch (join.outcome()) {
-            case CLAIMED -> {
-                String summary = logic.legacySummary(join.legacy());
-                getLogger().info(messages.text("log.legacyClaimed", join.legacy().name(), player.getName(), summary));
-                send(player, List.of(Line.of("msg.legacy.joined", summary)));
-            }
-            case HELD_BALANCE -> getLogger().info(messages.text("log.legacyHeldBalance", join.legacy().name(), player.getName()));
-            case HELD_CONFLICT -> getLogger().info(messages.text("log.legacyHeldConflict", join.legacy().name(), player.getName()));
-            default -> {
-            }
-        }
+        service.enter(player.getUniqueId(), player.getName());
     }
 
     // ---- ledger clean-up ------------------------------------------------------------------------------------------

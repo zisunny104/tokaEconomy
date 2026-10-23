@@ -831,6 +831,13 @@ public final class EconomyService {
         }
     }
 
+    /** A player logged in. Old balances are not matched by name here: the profile service announces who an old name is. */
+    public void enter(UUID id, String name) {
+        synchronized (lock) {
+            createAccount(id, name);
+        }
+    }
+
     /** Adds the legacy balances to the account (made without starting balances when missing), whatever it holds. */
     public Claim claimLegacy(String name, UUID id, String playerName, Cause cause) {
         String lower = name == null ? "" : name.strip().toLowerCase(Locale.ROOT);
