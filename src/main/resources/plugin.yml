@@ -1,6 +1,6 @@
 name: tokaEconomy
 main: dev.toka.economy.Main
-version: "0.5.3"
+version: "0.5.4"
 api: ["1.0.0"]
 author: zisunny104
 load: STARTUP
@@ -20,6 +20,7 @@ commands:
     usage: "/exchange <來源貨幣> <目標貨幣> <金額>（/exchange help 查看說明）"
     permission: tokaEconomy.exchange
   economy:
+    aliases: [eco]
     description: 經濟指令：排行榜 top 人人可用，其餘（give、take、set、see、reload、vacuum、ledger、rates、legacy、menu、plan）為管理員
     usage: "/economy <top|see|give|take|set|reload|vacuum|ledger|rates|legacy|menu|plan <status|mode|fields>|help>（/economy help 查看完整說明）"
     permission: tokaEconomy.use

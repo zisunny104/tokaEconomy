@@ -298,10 +298,10 @@ public final class Main extends PluginBase implements Listener {
     }
 
     private void registerExtraCommands(boolean compat) {
+        extra("bal", "balance", "tokaEconomy.balance");
+        extra("money", "balance", "tokaEconomy.balance");
+        extra("topmoney", "top", PERM_TOP);
         if (compat) {
-            extra("bal", "balance", "tokaEconomy.balance");
-            extra("money", "balance", "tokaEconomy.balance");
-            extra("topmoney", "top", PERM_TOP);
             extra("seemoney", "see", PERM_SEE);
             extra("givemoney", "give", PERM_ADMIN);
             extra("takemoney", "take", PERM_ADMIN);

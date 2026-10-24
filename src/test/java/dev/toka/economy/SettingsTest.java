@@ -20,7 +20,7 @@ public class SettingsTest {
         assertEquals(0, s.fee().rules().size());
         assertEquals(365, s.keepDays());
         assertEquals(200000, s.maxRows());
-        assertFalse(s.compatCommands());
+        assertTrue(s.compatCommands());
         assertEquals(2, s.rates().size());
     }
 
