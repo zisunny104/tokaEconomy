@@ -185,6 +185,23 @@ public final class Economy {
         return s == null ? Result.fail(Status.UNAVAILABLE) : s.previewExchange(id, from, to, amount);
     }
 
+    // ---- statistics ---------------------------------------------------------------------------------------------
+
+    /** One ledger row seen from an account: {@code amount} is positive when the account received it and negative when it paid. */
+    public record Movement(long time, String currency, long amount) {
+    }
+
+    /** The newest ledger rows of an account (newest first, at most {@code limit}, never more than 500); empty while the economy is not running. */
+    public static List<Movement> movements(UUID id, int limit) {
+        EconomyService s = service;
+        if (s == null) return List.of();
+        List<Movement> out = new java.util.ArrayList<>();
+        for (var e : s.ledger(id, 1, Math.max(1, Math.min(500, limit))).entries()) {
+            out.add(new Movement(e.time(), e.currency(), id.equals(e.from()) ? -e.amount() : e.amount()));
+        }
+        return out;
+    }
+
     // ---- legacy names ---------------------------------------------------------------------------------------------
 
     /**

@@ -32,7 +32,7 @@ cmd:
 help:
   balance:
     - "§6=== §f§l/balance 查看餘額§r §6==="
-    - "§e/balance §7- §b開啟錢包視窗：餘額、轉帳、兌換、排行榜、交易紀錄（別名 /bal、/money）"
+    - "§e/balance §7- §b開啟錢包視窗：餘額、轉帳、兌換、排行榜、交易紀錄"
     - "§e/balance <玩家> [貨幣] §7- §b以文字查看餘額，看其他玩家需要 tokaEconomy.see"
     - "§e/balance help §7- §b顯示此說明"
   pay:
@@ -46,27 +46,33 @@ help:
     - "§e/exchange <來源貨幣> <目標貨幣> <金額> §7- §b依匯率兌換，所得無條件捨去為整數"
     - "§e/exchange help §7- §b顯示此說明"
   economy:
-    - "§6=== §f§l經濟指令說明§r §6=== §7（別名 /eco；<必填>、[選填]）"
-    - "§e/balance [玩家] [貨幣] §7- §b查看餘額（別名 /bal、/money）"
+    - "§6=== §f§l經濟指令說明§r §6=== §7（<必填>、[選填]）"
+    - "§e/balance [玩家] [貨幣] §7- §b查看餘額"
     - "§e/pay <玩家> <金額> [貨幣] §7- §b轉帳給玩家"
     - "§e/exchange <來源貨幣> <目標貨幣> <金額> §7- §b兌換貨幣"
-    - "§e/economy top [貨幣] [頁] §7- §b排行榜（別名 /topmoney）"
-    - "§e/economy see [玩家] [貨幣] §7- §b查看餘額（別名 /seemoney；看他人需 OP）"
-    - "§e/economy give <玩家> <金額> [貨幣] §7- §b給予（相容 /givemoney）"
-    - "§e/economy take <玩家> <金額> [貨幣] §7- §b扣除（相容 /takemoney）"
-    - "§e/economy set <玩家> <金額> [貨幣] §7- §b設定餘額（相容 /setmoney）"
+    - "§e/economy top [貨幣] [頁] §7- §b排行榜"
+    - "§b查看與紀錄（管理員）："
+    - "§e/economy see [玩家] [貨幣] §7- §b查看餘額，看他人需要 tokaEconomy.see"
     - "§e/economy ledger [玩家] [頁] §7- §b查詢交易紀錄"
     - "§e/economy rates §7- §b列出匯率"
-    - "§e/economy reload §7- §b重新讀取 config.yml（不需重啟）"
+    - "§e/economy menu §7- §b開啟管理視窗"
+    - "§b調整餘額（管理員）："
+    - "§e/economy give <玩家> <金額> [貨幣] §7- §b給予"
+    - "§e/economy take <玩家> <金額> [貨幣] §7- §b扣除"
+    - "§e/economy set <玩家> <金額> [貨幣] §7- §b設定餘額"
+    - "§b維護（管理員）："
+    - "§e/economy reload §7- §b重新讀取 config.yml 與語系檔"
     - "§e/economy vacuum §7- §b立即清理過期的交易紀錄"
+    - "§b舊名稱帳戶（管理員）："
     - "§e/economy legacy list [頁] §7- §b列出尚未取回的舊名稱帳戶"
     - "§e/economy legacy claim <名稱> <玩家> §7- §b強制把舊帳戶餘額併入玩家帳戶（會寫交易紀錄）"
     - "§e/economy legacy drop <名稱> §7- §b刪除一筆舊帳戶，不給任何人"
-    - "§e/economy menu §7- §b開啟管理視窗（給予、扣除、設定、查看、紀錄、匯率、重載）"
+    - "§b Plan 展示（管理員）："
     - "§e/economy plan status §7- §b查看 Plan 展示設定"
     - "§e/economy plan mode <auto|enable|disable> §7- §b設定 Plan 展示模式"
     - "§e/economy plan fields <all|none|欄位...> §7- §b設定要展示的欄位（account、balance.<貨幣>）"
-    - "§e/economy help [頁|all] §7- §b顯示此說明，all 一次全列"
+    - "§b相容指令（config.yml 的 compat-commands 開啟時）："
+    - "§7/bal /money /topmoney /seemoney /givemoney /takemoney /setmoney"
 
 # ───────────────────────── 訊息（msg） ─────────────────────────
 msg:
@@ -177,9 +183,7 @@ ui:
   # 錢包主視窗。${0}=各貨幣餘額（每行一種）
   balance:
     title: "=我的錢包="
-    prompt: "${0}
-
-§b請選擇要做的事"
+    prompt: "${0}"
   transfer:
     players:
       title: "=轉帳對象="
@@ -204,7 +208,7 @@ ui:
     offline:
       item: "§e輸入離線玩家名稱"
       title: "=離線玩家="
-      label: "§b輸入對方的玩家名稱"
+      label: "輸入對方的玩家名稱"
       name: "玩家名稱"
       nameHint: "例如 Steve"
   exchange:
@@ -233,7 +237,7 @@ ui:
   top:
     currencies:
       title: "=排行榜="
-      prompt: "請選擇貨幣"
+      prompt: ""
     list:
       # ${0}=貨幣名稱
       title: "=${0}排行榜="
@@ -258,20 +262,20 @@ ui:
 
   admin:
     title: "=經濟管理="
-    prompt: "§b請選擇要做的事"
+    prompt: ""
     button:
-      adjust: "§l§b調整餘額"
-      see: "§l§b查看餘額"
-      ledger: "§l§b玩家交易紀錄"
-      rates: "§l§b匯率"
-      reload: "§l§b重新載入設定"
+      adjust: "§l調整餘額"
+      see: "§l查看餘額"
+      ledger: "§l玩家交易紀錄"
+      rates: "§l匯率"
+      reload: "§l重新載入設定"
     kind:
       give: "給予"
       take: "扣除"
       set: "設定為"
     pick:
       title: "=選擇玩家="
-      hint: "§b搜尋可縮小線上名單；離線玩家請直接輸入名稱"
+      hint: "搜尋可縮小線上名單；離線玩家請直接輸入名稱"
       search: "搜尋線上玩家"
       searchHint: "名稱的一部分"
       online: "線上玩家"
@@ -282,7 +286,7 @@ ui:
     adjust:
       # ${0}=玩家
       title: "=調整 ${0}="
-      label: "§b對象：§a${0}"
+      label: "對象：${0}"
       action: "動作"
       currency: "貨幣"
       amount: "金額（整數）"
@@ -290,10 +294,10 @@ ui:
     confirm:
       title: "=確認調整="
       # ${0}=動作 ${1}=玩家 ${2}=金額
-      content: "§b動作：§a${0}
-§b對象：§a${1}
-§b金額：§a${2}"
-      accept: "§a確認"
+      content: "動作：${0}
+對象：${1}
+金額：${2}"
+      accept: "§b確認"
     ledger:
       # ${0}=玩家
       title: "=${0} 的交易紀錄="
@@ -301,8 +305,8 @@ ui:
       title: "=匯率="
     reload:
       title: "=重新載入="
-      content: "§b要重新讀取 config.yml 與語系檔嗎？"
-      accept: "§a重新載入"
+      content: "要重新讀取 config.yml 與語系檔嗎？"
+      accept: "§b重新載入"
 
 # ───────────────────────── 後台 log（log） ─────────────────────────
 log:

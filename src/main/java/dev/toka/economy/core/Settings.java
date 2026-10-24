@@ -19,7 +19,7 @@ public record Settings(String language, int helpLines, int topPerPage, boolean c
         int helpLines = (int) number(root.get("help-lines-per-page"), 8, 3, 100, "help-lines-per-page");
 
         int topPerPage = (int) number(root.get("top-lines-per-page"), 10, 3, 100, "top-lines-per-page");
-        boolean compat = root.get("compat-commands") == null || Boolean.TRUE.equals(root.get("compat-commands"));
+        boolean compat = Boolean.TRUE.equals(root.get("compat-commands"));
 
         Map<String, Currency> currencies = new LinkedHashMap<>();
         String primary = null;

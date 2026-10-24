@@ -14,7 +14,7 @@ public final class Help {
     /**
      * @param key     language list such as help.economy
      * @param command what the page footer tells to type, such as /economy help
-     * @param page    a page number, "all" for everything, or null
+     * @param page    a page number; anything else shows the first page
      * @return the lines to send
      */
     public static List<String> lines(Messages messages, String key, String command, String page, int perPage) {
@@ -23,8 +23,7 @@ public final class Help {
             return all;
         }
         List<String> body = all.subList(1, all.size());
-        boolean everything = "all".equalsIgnoreCase(page);
-        Pager.Page<String> p = Pager.of(body, everything ? Math.max(1, body.size()) : Math.max(3, perPage), Pager.parse(page, 1));
+        Pager.Page<String> p = Pager.of(body, Math.max(3, perPage), Pager.parse(page, 1));
         List<String> out = new ArrayList<>();
         out.add(all.get(0));
         out.addAll(p.lines());

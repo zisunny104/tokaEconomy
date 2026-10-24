@@ -24,9 +24,10 @@ window-icons: true
 # 排行榜與交易紀錄視窗最多讀取幾列（10 以上）；排行榜只列前這麼多名。
 window-rows-max: 500
 
-# 是否註冊相容 EconomyAPI 的指令 /givemoney、/takemoney、/setmoney（參數順序同 /economy give|take|set）。
+# 是否註冊相容 EconomyAPI 的短指令 /bal、/money、/topmoney、/seemoney、/givemoney、/takemoney、/setmoney（參數順序同 /economy）。
+# 預設關閉，因為基岩版的指令清單無法隱藏別名。
 # 名稱已被其他插件使用時會略過並寫入 log。修改後需重新啟動伺服器。
-compat-commands: true
+compat-commands: false
 
 # 側欄餘額（需安裝 tokaDisplay 0.3.0 以上，沒有就自動略過）。show 為 true 時每種貨幣在側欄各有一列，區段名稱就是貨幣代碼，排列在 tokaDisplay 的版面設定調整；修改後 /economy reload 即可生效。
 sidebar:
