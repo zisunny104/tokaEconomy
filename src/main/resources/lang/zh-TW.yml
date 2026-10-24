@@ -149,28 +149,28 @@ ui:
   page:
     footer: "§7第 §a${0}§7/§a${1}§7 頁，用 §e${2} <頁碼>§7 換頁"
     # 分頁視窗的標題。${0}=原標題 ${1}=頁碼 ${2}=總頁數
-    title: "${0} §7(${1}/${2})"
+    title: "${0} (${1}/${2})"
   # tokaDisplay 側欄的餘額列。key 是貨幣代碼，沒有對應 key 的貨幣使用 other。${0}=貨幣名稱 ${1}=千分位餘額
   sidebar:
     money: "§b[${0}]${1}§r"
     coin: "§e[${0}]${1}§r"
     other: "§a[${0}]${1}§r"
   common:
-    cancel: "取消"
+    cancel: "§c取消"
   button:
-    back: "§l§e>返回前頁<"
-    prevPage: "§l§e<上一頁"
-    nextPage: "§l§e下一頁>"
-    options: "§l§b搜尋／排序／每頁數量"
-    close: "§l§c>關閉<"
-    transfer: "§l§b轉帳"
-    exchange: "§l§b兌換貨幣"
-    top: "§l§b排行榜"
-    ledger: "§l§b交易紀錄"
+    back: "返回"
+    prevPage: "上一頁"
+    nextPage: "下一頁"
+    options: "§b搜尋／排序／每頁數量"
+    close: "§c關閉"
+    transfer: "§b轉帳"
+    exchange: "§b兌換貨幣"
+    top: "§b排行榜"
+    ledger: "§b交易紀錄"
   # 清單的搜尋、排序、每頁數量視窗（清單項目多時才出現）。${0}=清單全部項目數
   options:
-    title: "=清單選項="
-    hint: "共有 ${0} 項。關鍵字留空表示不篩選；設定會保留到您離開伺服器。"
+    title: "清單選項"
+    hint: "共 ${0} 項，關鍵字留空表示不篩選。"
     query: "搜尋關鍵字"
     queryHint: "輸入文字的一部分"
     sort: "排序方式"
@@ -182,99 +182,99 @@ ui:
     none: "沒有含有「${0}」的項目，可按最下方選項重新搜尋"
   # 錢包主視窗。${0}=各貨幣餘額（每行一種）
   balance:
-    title: "=我的錢包="
+    title: "我的錢包"
     prompt: "${0}"
   transfer:
     players:
-      title: "=轉帳對象="
-      hint: "點選要轉帳的線上玩家"
+      title: "轉帳對象"
+      hint: ""
       empty: "現在沒有其他線上玩家可以轉帳；對方離線時請用 /pay"
     form:
       # ${0}=對象名稱
-      title: "=轉帳給 ${0}="
-      label: "§b轉帳給 §a${0}§b，手續費由你另付，確認前會顯示"
+      title: "轉帳給 ${0}"
+      label: "轉帳給 ${0}，手續費另計，確認前會顯示"
       amount: "金額（整數）"
       amountHint: "例如 1000"
       currency: "貨幣"
     confirm:
-      title: "=確認轉帳="
+      title: "確認轉帳"
       # ${0}=對象 ${1}=金額 ${2}=手續費 ${3}=實付合計 ${4}=轉帳後餘額
-      content: "§b對象：§a${0}
-§b金額：§a${1}
-§b手續費：§a${2}
-§b實付合計：§a${3}
-§b轉帳後餘額：§a${4}"
-      accept: "§a確認轉帳"
+      content: "對象：${0}
+金額：${1}
+手續費：${2}
+實付合計：${3}
+轉帳後餘額：${4}"
+      accept: "§b確認轉帳"
     offline:
-      item: "§e輸入離線玩家名稱"
-      title: "=離線玩家="
+      item: "§b輸入離線玩家名稱"
+      title: "離線玩家"
       label: "輸入對方的玩家名稱"
       name: "玩家名稱"
       nameHint: "例如 Steve"
   exchange:
     pairs:
-      title: "=兌換貨幣="
-      hint: "點選要兌換的貨幣組合"
+      title: "兌換貨幣"
+      hint: ""
       empty: "目前沒有可兌換的匯率"
     # ${0}=來源貨幣 ${1}=目標貨幣 ${2}=匯率
-    pair: "§b${0} §7→ §b${1}  §7（1 : §a${2}§7）"
+    pair: "${0} → ${1}  （1 : ${2}）"
     form:
-      title: "=兌換貨幣="
+      title: "兌換貨幣"
       # ${0}=來源貨幣 ${1}=目標貨幣 ${2}=匯率 ${3}=來源貨幣餘額
-      label: "§b${0} §7→ §b${1}§b，匯率 1 : §a${2}
-§b目前持有 §a${3}
-§7所得無條件捨去為整數"
+      label: "${0} → ${1}，匯率 1 : ${2}
+目前持有 ${3}
+所得無條件捨去為整數"
       # ${0}=來源貨幣
       amount: "要兌換的 ${0} 數量（整數）"
       amountHint: "例如 1000"
     confirm:
-      title: "=確認兌換="
+      title: "確認兌換"
       # ${0}=付出 ${1}=可得 ${2}=兌換後來源貨幣餘額
-      content: "§b付出：§a${0}
-§b可得：§a${1}
-§b兌換後餘額：§a${2}"
-      accept: "§a確認兌換"
+      content: "付出：${0}
+可得：${1}
+兌換後餘額：${2}"
+      accept: "§b確認兌換"
   top:
     currencies:
-      title: "=排行榜="
+      title: "排行榜"
       prompt: ""
     list:
       # ${0}=貨幣名稱
-      title: "=${0}排行榜="
+      title: "${0}排行榜"
       # ${0}=你的名次
-      hint: "你的名次：§a${0}"
+      hint: "你的名次：${0}"
       empty: "還沒有人持有這種貨幣"
     # 清單項目：${0}=名稱 ${1}=金額 ${2}=名次
-    row: "§b${0}§r §a${1} §7第 ${2} 名"
-    self: "§b${0}§r §a${1} §7第 ${2} 名 §e（你）"
+    row: "${0} ${1} 第 ${2} 名"
+    self: "${0} ${1} 第 ${2} 名（你）"
     rank: "第 ${0} 名"
     unranked: "未上榜"
   ledger:
-    title: "=交易紀錄="
+    title: "交易紀錄"
     # ${0}=筆數
     hint: "最近 ${0} 筆（只列出與你有關的）"
     empty: "還沒有交易紀錄"
     sortNew: "新到舊"
     sortOld: "舊到新"
     # 清單項目：${0}=時間 ${1}=原因 ${2}=金額 ${3}=對方。排序用交易紀錄的時間與編號，與文字無關。
-    out: "§7${0} §b${1} §c-${2} §7→ ${3}"
-    in: "§7${0} §b${1} §a+${2} §7← ${3}"
+    out: "${0} ${1} -${2} → ${3}"
+    in: "${0} ${1} +${2} ← ${3}"
 
   admin:
-    title: "=經濟管理="
+    title: "經濟管理"
     prompt: ""
     button:
-      adjust: "§l調整餘額"
-      see: "§l查看餘額"
-      ledger: "§l玩家交易紀錄"
-      rates: "§l匯率"
-      reload: "§l重新載入設定"
+      adjust: "§b調整餘額"
+      see: "§b查看餘額"
+      ledger: "§b玩家交易紀錄"
+      rates: "§b匯率"
+      reload: "§b重新載入設定"
     kind:
       give: "給予"
       take: "扣除"
       set: "設定為"
     pick:
-      title: "=選擇玩家="
+      title: "選擇玩家"
       hint: "搜尋可縮小線上名單；離線玩家請直接輸入名稱"
       search: "搜尋線上玩家"
       searchHint: "名稱的一部分"
@@ -285,14 +285,14 @@ ui:
       missing: "§c請選擇或輸入一位玩家"
     adjust:
       # ${0}=玩家
-      title: "=調整 ${0}="
+      title: "調整 ${0}"
       label: "對象：${0}"
       action: "動作"
       currency: "貨幣"
       amount: "金額（整數）"
       amountHint: "例如 1000"
     confirm:
-      title: "=確認調整="
+      title: "確認調整"
       # ${0}=動作 ${1}=玩家 ${2}=金額
       content: "動作：${0}
 對象：${1}
@@ -300,11 +300,11 @@ ui:
       accept: "§b確認"
     ledger:
       # ${0}=玩家
-      title: "=${0} 的交易紀錄="
+      title: "${0} 的交易紀錄"
     rates:
-      title: "=匯率="
+      title: "匯率"
     reload:
-      title: "=重新載入="
+      title: "重新載入"
       content: "要重新讀取 config.yml 與語系檔嗎？"
       accept: "§b重新載入"
 
