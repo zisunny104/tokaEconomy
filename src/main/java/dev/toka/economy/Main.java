@@ -148,6 +148,8 @@ public final class Main extends PluginBase implements Listener {
 
     @Override
     public void onDisable() {
+        cn.nukkit.event.HandlerList.unregisterAll(legacyAnnouncements);
+        listeningLegacy = false;
         unregisterExtraCommands();
         closePlan();
         if (sidebar != null) {
@@ -218,6 +220,8 @@ public final class Main extends PluginBase implements Listener {
     }
 
     private boolean listeningLegacy;
+    /** Apart from this plugin's own listener, so that removing the event handler leaves the other handlers alone. */
+    private final cn.nukkit.event.Listener legacyAnnouncements = new cn.nukkit.event.Listener() { };
 
     /** The profile service decides who an old name is; the balances of an old account move only when it says so. */
     private void connectLegacy() {
@@ -229,8 +233,20 @@ public final class Main extends PluginBase implements Listener {
             @SuppressWarnings("unchecked") Map<String, UUID> resolved = (Map<String, UUID>) profiles.getClass().getMethod("legacyResolved").invoke(null);
             resolved.forEach(this::takeLegacy);
             if (!listeningLegacy) {
-                profiles.getClass().getMethod("onLegacyResolved", java.util.function.BiConsumer.class).invoke(null,
-                        (java.util.function.BiConsumer<String, UUID>) (name, uuid) -> getServer().getScheduler().scheduleTask(this, () -> takeLegacy(name, uuid)));
+                Class<?> event = profiles.getClass().getClassLoader().loadClass("dev.toka.profiles.event.LegacyResolvedEvent");
+                java.lang.reflect.Method oldName = event.getMethod("getOldName"), uuidOf = event.getMethod("getUuid");
+                getServer().getPluginManager().registerEvent(event.asSubclass(cn.nukkit.event.Event.class), legacyAnnouncements, cn.nukkit.event.EventPriority.NORMAL, (listener, fired) -> {
+                    if (!event.isInstance(fired)) {
+                        return;
+                    }
+                    try {
+                        String name = (String) oldName.invoke(fired);
+                        UUID uuid = (UUID) uuidOf.invoke(fired);
+                        getServer().getScheduler().scheduleTask(this, () -> takeLegacy(name, uuid));
+                    } catch (ReflectiveOperationException | ClassCastException unavailable) {
+                        getLogger().warning(messages.text("log.profilesUnavailable", unavailable.getClass().getSimpleName()));
+                    }
+                }, this);
                 listeningLegacy = true;
             }
         } catch (ReflectiveOperationException | LinkageError unavailable) {
@@ -253,6 +269,7 @@ public final class Main extends PluginBase implements Listener {
     @EventHandler
     public void onProfilesEnabled(cn.nukkit.event.plugin.PluginEnableEvent event) {
         if (event.getPlugin().getName().equals("tokaProfiles")) {
+            cn.nukkit.event.HandlerList.unregisterAll(legacyAnnouncements);
             listeningLegacy = false;
             getServer().getScheduler().scheduleTask(this, this::connectLegacy);
         }

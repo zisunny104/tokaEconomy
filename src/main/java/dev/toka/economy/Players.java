@@ -20,7 +20,8 @@ final class Players implements Names {
     private final Plugin plugin;
     private final Server server;
     private final EconomyService service;
-    /** Extra name sources, asked after the online players. TODO: register a tokaProfiles source when it is installed. */
+    /** Extra name sources, asked after the online players. */
+    // TODO: register a tokaProfiles source
     private final List<Function<String, Optional<UUID>>> sources = new CopyOnWriteArrayList<>();
     private final ExecutorService lookup = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "tokaEconomy-lookup");
