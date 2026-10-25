@@ -31,7 +31,6 @@ import dev.toka.economy.window.WindowSettings;
 import dev.toka.i18n.Messages;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;

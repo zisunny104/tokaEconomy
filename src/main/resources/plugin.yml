@@ -1,6 +1,6 @@
 name: tokaEconomy
 main: dev.toka.economy.Main
-version: "0.5.6"
+version: "0.5.7"
 api: ["1.0.0"]
 author: zisunny104
 load: STARTUP

@@ -2,7 +2,6 @@ package dev.toka.economy.command;
 
 import dev.toka.economy.Cause;
 import dev.toka.economy.Result;
-import dev.toka.economy.Status;
 import dev.toka.economy.core.Codec;
 import dev.toka.economy.core.Codec.LedgerEntry;
 import dev.toka.economy.core.Reasons;
@@ -11,7 +10,6 @@ import dev.toka.economy.core.Settings;
 import dev.toka.i18n.Messages;
 import dev.toka.i18n.Pager;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
