@@ -2,6 +2,7 @@ package dev.toka.economy.window;
 
 import cn.nukkit.Player;
 import cn.nukkit.form.element.ElementDropdown;
+import cn.nukkit.form.element.ElementHeader;
 import cn.nukkit.form.element.ElementInput;
 import cn.nukkit.form.element.ElementLabel;
 import cn.nukkit.form.response.FormResponseCustom;
@@ -113,14 +114,15 @@ public final class AdminWindows {
             }
         }
         FormWindowCustom form = new FormWindowCustom(t("ui.admin.pick.title"));
+        form.addElement(new ElementHeader(t("ui.admin.pick.title")));
         form.addElement(new ElementLabel(error == null ? t("ui.admin.pick.hint") : t(error.key(), error.args()) + "\n" + t("ui.admin.pick.hint")));
         form.addElement(new ElementInput(t("ui.admin.pick.search"), t("ui.admin.pick.searchHint"), search));
         form.addElement(new ElementDropdown(t("ui.admin.pick.online"), options, options.size() == 2 ? 1 : 0));
         form.addElement(new ElementInput(t("ui.admin.pick.offline"), t("ui.admin.pick.offlineHint"), ""));
         Custom.show(player, form, response -> {
-            String typedSearch = input(response, 1);
-            String offline = input(response, 3);
-            int index = response.getDropdownResponse(2) == null ? 0 : response.getDropdownResponse(2).getElementID();
+            String typedSearch = input(response, 2);
+            String offline = input(response, 4);
+            int index = response.getDropdownResponse(3) == null ? 0 : response.getDropdownResponse(3).getElementID();
             if (!offline.isEmpty()) {
                 next.accept(player, offline);
             } else if (index > 0 && index < options.size()) {
@@ -153,14 +155,15 @@ public final class AdminWindows {
             kindNames.add(t("ui.admin.kind." + k));
         }
         FormWindowCustom form = new FormWindowCustom(t("ui.admin.adjust.title", name));
+        form.addElement(new ElementHeader(t("ui.admin.adjust.title", name)));
         form.addElement(new ElementLabel(error == null ? t("ui.admin.adjust.label", name) : t(error.key(), error.args())));
         form.addElement(new ElementDropdown(t("ui.admin.adjust.action"), kindNames, kind));
         form.addElement(new ElementDropdown(t("ui.admin.adjust.currency"), currencyNames, Math.min(currency, codes.size() - 1)));
         form.addElement(new ElementInput(t("ui.admin.adjust.amount"), t("ui.admin.adjust.amountHint"), amount));
         Custom.show(player, form, response -> {
-            int k = response.getDropdownResponse(1) == null ? 0 : Math.max(0, Math.min(KINDS.length - 1, response.getDropdownResponse(1).getElementID()));
-            int c = response.getDropdownResponse(2) == null ? 0 : Math.max(0, Math.min(codes.size() - 1, response.getDropdownResponse(2).getElementID()));
-            String typed = input(response, 3);
+            int k = response.getDropdownResponse(2) == null ? 0 : Math.max(0, Math.min(KINDS.length - 1, response.getDropdownResponse(2).getElementID()));
+            int c = response.getDropdownResponse(3) == null ? 0 : Math.max(0, Math.min(codes.size() - 1, response.getDropdownResponse(3).getElementID()));
+            String typed = input(response, 4);
             long value = CommandLogic.parseAmount(typed);
             if (value < 0 || (value == 0 && !KINDS[k].equals("set"))) {
                 adjustForm(player, name, Line.of("err.amount"), typed, k, c);

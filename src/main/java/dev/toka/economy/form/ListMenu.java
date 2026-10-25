@@ -2,6 +2,7 @@ package dev.toka.economy.form;
 
 import cn.nukkit.Player;
 import cn.nukkit.form.element.ElementDropdown;
+import cn.nukkit.form.element.ElementHeader;
 import cn.nukkit.form.element.ElementInput;
 import cn.nukkit.form.element.ElementLabel;
 import cn.nukkit.form.element.ElementSlider;
@@ -125,6 +126,7 @@ public final class ListMenu {
         int min = Math.max(1, settings.min());
         int max = Math.max(min, settings.max());
         FormWindowCustom window = new FormWindowCustom(texts.optionsTitle());
+        window.addElement(new ElementHeader(texts.optionsTitle()));
         window.addElement(new ElementLabel(texts.optionsHintFor(items.size())));
         window.addElement(new ElementInput(texts.query(), texts.queryHint(), view.query()));
         window.addElement(new ElementDropdown(texts.sort(), List.of(texts.sortDefault(), byTime ? texts.sortTime() : texts.sortName()),
@@ -132,11 +134,11 @@ public final class ListMenu {
         window.addElement(new ElementSlider(texts.perPage(), min, max, 1, perPage));
         Registry.show(player, window, (p, event) -> {
             if (event.wasClosed() || !(event.getResponse() instanceof FormResponseCustom response)) return;
-            String query = response.getInputResponse(1) == null ? "" : response.getInputResponse(1).strip();
+            String query = response.getInputResponse(2) == null ? "" : response.getInputResponse(2).strip();
             if (query.length() > MAX_QUERY) query = query.substring(0, MAX_QUERY);
-            boolean second = response.getDropdownResponse(2) != null && response.getDropdownResponse(2).getElementID() == 1;
+            boolean second = response.getDropdownResponse(3) != null && response.getDropdownResponse(3).getElementID() == 1;
             int sort = !second ? View.SORT_DEFAULT : byTime ? View.SORT_TIME : View.SORT_NAME;
-            Preferences.set(p.getUniqueId(), name, new View(query, sort, Math.round(response.getSliderResponse(3))));
+            Preferences.set(p.getUniqueId(), name, new View(query, sort, Math.round(response.getSliderResponse(4))));
             show(p, 1);
         });
     }

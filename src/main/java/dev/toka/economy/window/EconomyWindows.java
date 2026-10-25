@@ -2,6 +2,7 @@ package dev.toka.economy.window;
 
 import cn.nukkit.Player;
 import cn.nukkit.form.element.ElementDropdown;
+import cn.nukkit.form.element.ElementHeader;
 import cn.nukkit.form.element.ElementInput;
 import cn.nukkit.form.element.ElementLabel;
 import cn.nukkit.form.response.FormResponseCustom;
@@ -164,10 +165,11 @@ public final class EconomyWindows {
 
     private void offlineForm(Player player, Line error, String typed) {
         FormWindowCustom form = new FormWindowCustom(t("ui.transfer.offline.title"));
+        form.addElement(new ElementHeader(t("ui.transfer.offline.title")));
         form.addElement(new ElementLabel(error == null ? t("ui.transfer.offline.label") : text(error)));
         form.addElement(new ElementInput(t("ui.transfer.offline.name"), t("ui.transfer.offline.nameHint"), typed));
         Custom.show(player, form, response -> {
-            String name = response.getInputResponse(1) == null ? "" : response.getInputResponse(1).strip();
+            String name = response.getInputResponse(2) == null ? "" : response.getInputResponse(2).strip();
             if (name.isEmpty()) {
                 offlineForm(player, Line.of("err.player.notFound", name), name);
                 return;
@@ -190,14 +192,15 @@ public final class EconomyWindows {
     private void transferForm(Player player, UUID target, String targetName, Line error, String amount, int currency) {
         List<String> codes = windows.currencies();
         FormWindowCustom form = new FormWindowCustom(t("ui.transfer.form.title", targetName));
+        form.addElement(new ElementHeader(t("ui.transfer.form.title", targetName)));
         form.addElement(new ElementLabel(label(error, t("ui.transfer.form.label", targetName), player)));
         form.addElement(new ElementInput(t("ui.transfer.form.amount"), t("ui.transfer.form.amountHint"), amount));
         if (codes.size() > 1) {
             form.addElement(new ElementDropdown(t("ui.transfer.form.currency"), currencyNames(codes), Math.max(0, Math.min(currency, codes.size() - 1))));
         }
         Custom.show(player, form, response -> {
-            String typed = response.getInputResponse(1) == null ? "" : response.getInputResponse(1);
-            int index = chosen(response, 2, codes.size());
+            String typed = response.getInputResponse(2) == null ? "" : response.getInputResponse(2);
+            int index = chosen(response, 3, codes.size());
             String code = codes.get(index);
             WindowLogic.Review review = windows.transfer(player.getUniqueId(), target, targetName, code, typed);
             if (!review.ok()) {
@@ -228,11 +231,12 @@ public final class EconomyWindows {
     private void exchangeForm(Player player, WindowLogic.Pair pair, Line error, String amount) {
         FormWindowCustom form = new FormWindowCustom(t("ui.exchange.form.title"));
         long have = service.balance(player.getUniqueId(), pair.from()).balance();
+        form.addElement(new ElementHeader(t("ui.exchange.form.title")));
         form.addElement(new ElementLabel(label(error, t("ui.exchange.form.label", name(pair.from()), name(pair.to()),
                 pair.rate().stripTrailingZeros().toPlainString(), money(have, pair.from())), null)));
         form.addElement(new ElementInput(t("ui.exchange.form.amount", name(pair.from())), t("ui.exchange.form.amountHint"), amount));
         Custom.show(player, form, response -> {
-            String typed = response.getInputResponse(1) == null ? "" : response.getInputResponse(1);
+            String typed = response.getInputResponse(2) == null ? "" : response.getInputResponse(2);
             WindowLogic.Review review = windows.exchange(player.getUniqueId(), pair, typed);
             if (!review.ok()) {
                 exchangeForm(player, pair, review.error(), typed);
