@@ -101,7 +101,7 @@
 
 ## 側欄餘額 tokaDisplay
 
-搭配 tokaDisplay 0.3.0 以上，可在側欄顯示各貨幣餘額。排列由 tokaDisplay 的 `sidebar.layout` 設定，`sidebar.show: false` 可關閉，`/economy reload` 會更新區段。
+搭配 tokaDisplay，可在側欄顯示各貨幣餘額。排列由 tokaDisplay 的 `sidebar.layout` 設定，`sidebar.show: false` 可關閉，`/economy reload` 會更新區段。
 
 區段 owner 為 `tokaEconomy`，id 為貨幣代碼，預設 `money`、`coin`。文字範本位於 `lang/zh-TW.yml` 的 `ui.sidebar`。
 
@@ -144,21 +144,13 @@ Result r = Economy.transfer(from, to, "money", 500, Cause.of("shop-buy", "myPlug
 if (!r.ok()) { /* r.status() */ }
 ```
 
-## 版本紀錄
-
-- 0.3.1：向 tokaDisplay 註冊側欄餘額區段（每種貨幣一列），新增 `sidebar.show`。
-- 0.3.2：後台記錄套用顏色（說明文字 §b、數字 §a、警告 §e、錯誤 §c）。
-- 0.3.0：視窗元件（Menu、ListMenu、Confirm 等）內建於 `dev.toka.economy.form`，移除 tokaForms 相依；排行榜與交易紀錄的排序／搜尋偏好各自獨立，交易紀錄「舊到新」改依時間與編號排序；新增舊名稱帳戶（`Economy.importLegacy`、登入自動取回、`/economy legacy`）。
-- 0.2.0：`/balance` 玩家視窗（錢包、轉帳、兌換、排行榜、交易紀錄），使用 tokaForms 0.1.1（0.3.0 起內建）；新增 `window-*` 設定，`/economy reload` 一併更新。
-- 0.1.0：初版。多貨幣餘額、API、轉帳手續費與規則、兌換、排行榜、交易紀錄與清理、管理與相容指令。
-
 授權：MIT。
 
-### Plan 選用整合（0.4.0）
+### Plan 選用整合
 
 向 Plan DataExtension 提供玩家頁面摘要，預設 `plan.mode: auto`、`plan.fields: all`；可改成 `none` 或指定 `account`、`balance.<貨幣代碼>`。Plan 網頁的資料閱覽權限由 Plan 管理，請先確認誰可查看玩家頁面。
 
-使用官方 `com.djrapitops:plan-api:5.7-R0.2` 作 provided 依賴（不打包 Plan），實際檢查 Plan 5.8 build 3638 的 Builder API 相容。執行時檢查 `DATA_EXTENSION_BUILDER_API`；Plan 缺少、停用或不相容不影響經濟功能。支援 Plan 啟用/停用事件，以及 `/economy reload` 重新註冊。Plan 自身停用這個擴充時尊重其設定。
+使用官方 `com.djrapitops:plan-api` 作 provided 依賴（不打包 Plan）。執行時檢查 `DATA_EXTENSION_BUILDER_API`；Plan 缺少、停用或不相容不影響經濟功能。支援 Plan 啟用/停用事件，以及 `/economy reload` 重新註冊。Plan 自身停用這個擴充時尊重其設定。
 
 Provider 在 Plan 背景執行緒僅使用執行緒安全的記憶體查詢，產生不可變 `Snapshot`；不讀取世界、玩家物件或資料庫，不建立帳戶、不改餘額。讀取跨幣別期間有交易時可能反映不同瞬間，此展示不作財務結算依據。沒有公開 UUID/名稱對照、舊名資料、交易對象或交易明細。
 
@@ -177,7 +169,7 @@ API（主執行緒）：`planStatusJson()`、`configurePlan(String mode, String[
 
 depositOnce 使用來源、玩家 UUID 與 operation ID 去重；回傳成功前會確認帳戶與收據已寫入儲存。相同 ID 的不同金額或貨幣會拒絕；失敗時以相同 ID 重試，勿產生新 ID。完成回呼可能在背景執行緒，不可直接操作遊戲世界。收據隨帳戶保留；開始使用後不要降版到不支援收據的版本，以免失去去重紀錄。
 
-### 可重試的購地扣款與失敗補償（0.4.2）
+### 可重試的購地扣款與失敗補償
 
 `Economy.withdrawOnce(UUID, currency, amount, cause, operationId)` 將扣款與收據一起保存；同一玩家、來源及 operation ID 的重試不會再次扣款。重試必須使用相同金額、貨幣與方向，不能把入帳收據當成扣款收據。舊版沒有 direction 的入帳收據仍可讀取，視為 CREDIT。
 
