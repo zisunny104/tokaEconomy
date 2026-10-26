@@ -161,12 +161,12 @@ ui:
     back: "返回"
     prevPage: "上一頁"
     nextPage: "下一頁"
-    options: "§b搜尋／排序／每頁數量"
+    options: "搜尋／排序／每頁數量"
     close: "§c關閉"
-    transfer: "§b轉帳"
-    exchange: "§b兌換貨幣"
-    top: "§b排行榜"
-    ledger: "§b交易紀錄"
+    transfer: "轉帳"
+    exchange: "兌換貨幣"
+    top: "排行榜"
+    ledger: "交易紀錄"
   # 清單的搜尋、排序、每頁數量視窗（清單項目多時才出現）。${0}=清單全部項目數
   options:
     title: "清單選項"
@@ -204,9 +204,9 @@ ui:
 手續費：${2}
 實付合計：${3}
 轉帳後餘額：${4}"
-      accept: "§b確認轉帳"
+      accept: "確認轉帳"
     offline:
-      item: "§b輸入離線玩家名稱"
+      item: "輸入離線玩家名稱"
       title: "離線玩家"
       label: "輸入對方的玩家名稱"
       name: "玩家名稱"
@@ -233,7 +233,7 @@ ui:
       content: "付出：${0}
 可得：${1}
 兌換後餘額：${2}"
-      accept: "§b確認兌換"
+      accept: "確認兌換"
   top:
     currencies:
       title: "排行榜"
@@ -264,11 +264,11 @@ ui:
     title: "經濟管理"
     prompt: ""
     button:
-      adjust: "§b調整餘額"
-      see: "§b查看餘額"
-      ledger: "§b玩家交易紀錄"
-      rates: "§b匯率"
-      reload: "§b重新載入設定"
+      adjust: "調整餘額"
+      see: "查看餘額"
+      ledger: "玩家交易紀錄"
+      rates: "匯率"
+      reload: "重新載入設定"
     kind:
       give: "給予"
       take: "扣除"
@@ -297,7 +297,7 @@ ui:
       content: "動作：${0}
 對象：${1}
 金額：${2}"
-      accept: "§b確認"
+      accept: "確認"
     ledger:
       # ${0}=玩家
       title: "${0} 的交易紀錄"
@@ -306,7 +306,7 @@ ui:
     reload:
       title: "重新載入"
       content: "要重新讀取 config.yml 與語系檔嗎？"
-      accept: "§b重新載入"
+      accept: "重新載入"
 
 # ───────────────────────── 後台 log（log） ─────────────────────────
 log:
